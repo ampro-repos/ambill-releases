@@ -1,0 +1,47 @@
+name: License Request
+description: Request or renew an ambill license for this installation
+title: "License Request — [fill in company name]"
+labels: ["license-request"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Submitting this opens a request that Ambill Support reviews and approves
+        manually — nothing is issued automatically. **After submitting, please
+        call Ambill Support so they know to check for it now.**
+  - type: input
+    id: company_name
+    attributes:
+      label: Company Name
+      description: The company name this ambill installation is registered to
+    validations:
+      required: true
+  - type: input
+    id: contact_person
+    attributes:
+      label: Contact Person
+    validations:
+      required: true
+  - type: input
+    id: contact_phone
+    attributes:
+      label: Contact Phone
+    validations:
+      required: true
+  - type: input
+    id: machine_uid
+    attributes:
+      label: Machine ID
+      description: Auto-filled by the ambill Activate License screen — do not edit
+      placeholder: XXXX-XXXX-XXXX-XXXX
+    validations:
+      required: true
+  - type: dropdown
+    id: request_type
+    attributes:
+      label: Request Type
+      options:
+        - New Activation
+        - Renewal
+    validations:
+      required: true

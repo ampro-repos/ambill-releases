@@ -1,0 +1,112 @@
+name: License Signing
+
+# IssueOps: a customer's ambill app opens a structured License Request issue (see
+# .github/ISSUE_TEMPLATE/license-request.yml). This workflow parses it, waits for manual
+# approval on a protected environment, then signs a real license using the pre-built
+# LicenseSigningCLI tool committed under tools/LicenseSigningCLI/ (binary only — its source
+# lives in the private ampro-apps repo). The signing key only ever exists as this
+# environment's secrets, never in the shipped app.
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  issues: write
+
+jobs:
+  parse:
+    if: contains(github.event.issue.labels.*.name, 'license-request')
+    runs-on: ubuntu-latest
+    outputs:
+      company_name: ${{ steps.parse.outputs.company_name }}
+      machine_uid: ${{ steps.parse.outputs.machine_uid }}
+    steps:
+      - name: Parse form fields and retitle issue
+        id: parse
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = context.payload.issue.body || "";
+
+            function field(label) {
+              const re = new RegExp("### " + label + "\\s*\\n\\s*\\n([^\\n]*)");
+              const m = body.match(re);
+              return m ? m[1].trim() : "";
+            }
+
+            const companyName = field("Company Name");
+            const machineUid  = field("Machine ID");
+
+            if (!companyName || !machineUid) {
+              await github.rest.issues.createComment({
+                ...context.repo,
+                issue_number: context.issue.number,
+                body: "Could not read this request — Company Name and Machine ID are required. Please close this and submit again using the License Request form."
+              });
+              core.setFailed("Missing required fields");
+              return;
+            }
+
+            await github.rest.issues.update({
+              ...context.repo,
+              issue_number: context.issue.number,
+              title: `License Request — ${companyName} (UID: ${machineUid})`
+            });
+
+            core.setOutput('company_name', companyName);
+            core.setOutput('machine_uid', machineUid);
+
+      - name: Acknowledge receipt
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              ...context.repo,
+              issue_number: context.issue.number,
+              body: "Request received. **Please call Ambill Support now so they can review and approve it.** This issue will get a comment with the license once it's approved."
+            });
+
+  sign:
+    needs: parse
+    runs-on: windows-latest
+    environment: license-signing   # pauses here until a required reviewer approves
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Sign license
+        id: sign
+        env:
+          LICENSE_SIGNING_PFX_BASE64: ${{ secrets.LICENSE_SIGNING_PFX_BASE64 }}
+          LICENSE_SIGNING_PFX_PASSWORD: ${{ secrets.LICENSE_SIGNING_PFX_PASSWORD }}
+        shell: pwsh
+        run: |
+          $uid = "${{ needs.parse.outputs.machine_uid }}"
+          $exe = "tools\LicenseSigningCLI\LicenseSigningCLI.exe"
+
+          $licenseString = & $exe --uid $uid --appname ambill --expiry-days 365
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Signing failed: $licenseString"
+            exit 1
+          }
+
+          # GITHUB_OUTPUT, not the log, so the license string itself is never printed anywhere
+          "license_string=$licenseString" >> $env:GITHUB_OUTPUT
+
+      - name: Post license back on the issue and close it
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const licenseString = `${{ steps.sign.outputs.license_string }}`;
+
+            await github.rest.issues.createComment({
+              ...context.repo,
+              issue_number: context.issue.number,
+              body: "Your license has been approved and generated:\n\n```\n" + licenseString + "\n```\n\nPaste this into the ambill Activate License screen if it doesn't fill in automatically."
+            });
+
+            await github.rest.issues.update({
+              ...context.repo,
+              issue_number: context.issue.number,
+              state: 'closed'
+            });

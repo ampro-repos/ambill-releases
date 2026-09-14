@@ -30,7 +30,11 @@ jobs:
             const body = context.payload.issue.body || "";
 
             function field(label) {
-              const re = new RegExp("### " + label + "\\s*\\n\\s*\\n([^\\n]*)");
+              // [ \t]* not \s* before each newline — \s* also matches newlines, so on a field
+              // with an empty value followed by extra blank lines it greedily swallows past
+              // them and misreads the NEXT "### Label" header as this field's value. Confirmed
+              // live: an empty Previous Machine ID rendered as "### Product" elsewhere.
+              const re = new RegExp("### " + label + "[ \\t]*\\r?\\n[ \\t]*\\r?\\n([^\\r\\n]*)");
               const m = body.match(re);
               return m ? m[1].trim() : "";
             }
@@ -61,9 +65,15 @@ jobs:
             // edit before approving. Append them here (with defaults) whenever missing,
             // so every request — app-submitted or manually created via the web form —
             // ends up with the same editable set of fields.
+            // [ \t]* (not \s*) before each newline — \s* also matches newlines, so appending
+            // "\n\n### Label\n\n" + "" (an empty default) directly before the next field's own
+            // leading "\n\n### NextLabel" compounds into multiple blank lines, and a \s*-based
+            // reader elsewhere (parsing this same convention) greedily swallows straight past
+            // them and misreads the NEXT header as this field's value. Confirmed live on a real
+            // issue: an empty "Previous Machine ID" ended up rendered as "### Product".
             function escapeRegex(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
             function hasField(label) {
-              return new RegExp("### " + escapeRegex(label) + "\\s*\\n\\s*\\n").test(body);
+              return new RegExp("### " + escapeRegex(label) + "[ \\t]*\\r?\\n[ \\t]*\\r?\\n").test(body);
             }
 
             const adminDefaults = [
@@ -75,15 +85,17 @@ jobs:
               ["Payment Amount (INR)", ""],
               ["Payment Provider", "UPI QR"],
             ];
-            let appended = "";
-            for (const [label, def] of adminDefaults) {
-              if (!hasField(label)) appended += `\n\n### ${label}\n\n${def}`;
-            }
-            if (appended) {
+            // Join with a single "\n\n" between sections regardless of which values are
+            // empty, instead of letting each field's own leading/trailing "\n\n" stack up.
+            const missingSections = adminDefaults
+              .filter(([label]) => !hasField(label))
+              .map(([label, def]) => `### ${label}\n\n${def}`);
+            if (missingSections.length) {
+              const appended = "\n\n" + missingSections.join("\n\n");
               await github.rest.issues.update({
                 ...context.repo,
                 issue_number: context.issue.number,
-                body: body + appended + "\n"
+                body: body.replace(/\s*$/, "") + appended + "\n"
               });
             }
 
@@ -126,7 +138,11 @@ jobs:
             const body = issue.data.body || "";
 
             function field(label) {
-              const re = new RegExp("### " + label + "\\s*\\n\\s*\\n([^\\n]*)");
+              // [ \t]* not \s* before each newline — \s* also matches newlines, so on a field
+              // with an empty value followed by extra blank lines it greedily swallows past
+              // them and misreads the NEXT "### Label" header as this field's value. Confirmed
+              // live: an empty Previous Machine ID rendered as "### Product" elsewhere.
+              const re = new RegExp("### " + label + "[ \\t]*\\r?\\n[ \\t]*\\r?\\n([^\\r\\n]*)");
               const m = body.match(re);
               return m ? m[1].trim() : "";
             }

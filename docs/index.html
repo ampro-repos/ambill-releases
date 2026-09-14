@@ -145,7 +145,12 @@
   .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 16px; }
   .field-grid .full { grid-column: 1 / -1; }
 
-  /* ── Searchable dropdown (Previous Machine ID) ── */
+  /* ── Searchable dropdown (Previous Machine ID) — a text input styled and iconed to read as
+     a select/combobox, but still freely typeable/searchable underneath. ── */
+  .dropdown-input { position: relative; }
+  .dropdown-input input { padding-right: 30px; cursor: text; }
+  .dropdown-input input:hover { border-color: #b8c6d6; }
+  .dropdown-chevron { position: absolute; right: 11px; top: 50%; transform: translateY(-50%); pointer-events: none; }
   .autocomplete-list {
     position: absolute; z-index: 50; left: 0; right: 0; top: 100%; margin-top: 4px;
     background: #fff; border: 1px solid var(--border); border-radius: 8px;
@@ -413,7 +418,10 @@
             </div>
             <div style="position:relative;">
               <label>Previous Machine ID (only if switching)</label>
-              <input type="text" id="fPreviousUid" placeholder="Search company or paste UID..." autocomplete="off">
+              <div class="dropdown-input">
+                <input type="text" id="fPreviousUid" placeholder="Search company or paste UID..." autocomplete="off">
+                <svg class="dropdown-chevron" width="11" height="7" viewBox="0 0 11 7" fill="none"><path d="M1 1l4.5 4.5L10 1" stroke="#94a3b8" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </div>
               <div id="prevUidSuggestions" class="autocomplete-list hidden"></div>
               <div id="prevUidFromHint" class="hint hidden"></div>
             </div>
@@ -512,13 +520,20 @@ const API = `https://api.github.com/repos/${OWNER}/${REPO}`;
 const TOKEN_KEY = "ambill_admin_pat";
 
 function escapeRegex(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+// NOTE: [ \t]* (not \s*) before each newline — \s* also matches newlines, so on a field
+// with an empty value followed by extra blank lines (which the parse job's field-appender
+// could produce), a greedy \s* swallows straight past the blank line and captures the START
+// OF THE NEXT "### Label" section as this field's value. Confirmed live: an empty
+// "Previous Machine ID" followed by 3 blank lines before "### Product" was rendering
+// "### Product" as the field's value. [ \t]* only eats trailing spaces/tabs on the same
+// line, so exactly one blank line is required and nothing more.
 function getField(body, label) {
-  const re = new RegExp("### " + escapeRegex(label) + "\\s*\\n\\s*\\n([^\\n]*)");
+  const re = new RegExp("### " + escapeRegex(label) + "[ \\t]*\\r?\\n[ \\t]*\\r?\\n([^\\r\\n]*)");
   const m = body.match(re);
   return m ? m[1].trim() : "";
 }
 function setField(body, label, value) {
-  const re = new RegExp("(### " + escapeRegex(label) + "\\s*\\n\\s*\\n)([^\\n]*)");
+  const re = new RegExp("(### " + escapeRegex(label) + "[ \\t]*\\r?\\n[ \\t]*\\r?\\n)([^\\r\\n]*)");
   if (re.test(body)) return body.replace(re, (_, prefix) => prefix + value);
   return body.replace(/\s*$/, "") + "\n\n### " + label + "\n\n" + value + "\n";
 }

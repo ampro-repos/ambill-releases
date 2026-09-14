@@ -36,7 +36,9 @@ jobs:
             });
 
             function field(body, label) {
-              const re = new RegExp("### " + label + "\\s*\\n\\s*\\n([^\\n]*)");
+              // [ \t]* not \s* — see license-signing.yml's field() for why a greedy \s* can
+              // misread an empty field's value as the next "### Label" header instead.
+              const re = new RegExp("### " + label + "[ \\t]*\\r?\\n[ \\t]*\\r?\\n([^\\r\\n]*)");
               const m = body.match(re);
               return m ? m[1].trim() : "";
             }

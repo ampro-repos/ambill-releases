@@ -30,17 +30,18 @@
     border-radius: 10px;
     padding: 18px 20px;
     margin-bottom: 18px;
-    max-width: 720px;
+    max-width: 760px;
   }
   .row { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
   label { font-weight: 600; font-size: 13px; display: block; margin-bottom: 4px; color: #333; }
-  input[type=text], input[type=number], input[type=password], select {
+  input[type=text], input[type=number], input[type=password], select, textarea {
     font-size: 14px;
     padding: 7px 9px;
     border: 1px solid var(--border);
     border-radius: 6px;
     width: 100%;
     background: #fff;
+    font-family: inherit;
   }
   input:read-only { background: #f0f3f6; color: #555; }
   button {
@@ -52,13 +53,20 @@
     font-weight: 700;
     font-size: 13.5px;
     cursor: pointer;
+    white-space: nowrap;
   }
   button:hover { background: #f5c85a; }
   button.secondary { background: #eee; color: #333; }
   button.secondary:hover { background: #ddd; }
+  button.danger { background: #e57373; color: #fff; }
+  button.danger:hover { background: #d45c5c; }
+  button.go { background: var(--teal); color: #fff; }
+  button.go:hover { background: var(--teal-dark); }
   button:disabled { opacity: .5; cursor: default; }
   .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; }
   .field-grid .full { grid-column: 1 / -1; }
+  .filter-bar { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; align-items: center; }
+  .filter-bar select, .filter-bar input { width: auto; min-width: 140px; }
   .issue-list { list-style: none; padding: 0; margin: 0; }
   .issue-list li {
     padding: 10px 12px;
@@ -70,6 +78,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 10px;
   }
   .issue-list li:hover { border-color: var(--teal); background: #f6fbfd; }
   .issue-list .company { font-weight: 600; }
@@ -77,15 +86,19 @@
   .badge {
     font-size: 11px;
     font-weight: 700;
-    padding: 3px 8px;
+    padding: 3px 9px;
     border-radius: 10px;
-    background: #fff3cd;
-    color: #7a5c00;
+    white-space: nowrap;
   }
+  .badge-new       { background: #d6e8ff; color: #1a4a8a; }
+  .badge-payment   { background: #fff3cd; color: #7a5c00; }
+  .badge-signed    { background: #d4f3dd; color: #1c6b34; }
+  .badge-closed    { background: #f0d0d0; color: #8a2020; }
+  .badge-approval  { background: #e6d6ff; color: #5a2ea6; }
   .toast {
     position: fixed; top: 20px; right: 20px;
     padding: 12px 18px; border-radius: 8px; color: #fff;
-    font-size: 14px; z-index: 999; display: none;
+    font-size: 14px; z-index: 999; display: none; max-width: 420px;
   }
   .toast.ok { background: #2e9e5b; }
   .toast.err { background: #c0392b; }
@@ -93,17 +106,21 @@
   .readonly-block { background: #f6f8fa; border-radius: 8px; padding: 12px 14px; margin-bottom: 14px; font-size: 13.5px; }
   .readonly-block div { margin-bottom: 4px; }
   .readonly-block b { color: #444; }
-  a.gh-link { color: var(--teal); font-weight: 600; }
-  #tokenSetup { max-width: 520px; }
+  a.gh-link { color: var(--teal); font-weight: 600; text-decoration: none; }
+  a.gh-link:hover { text-decoration: underline; }
+  #tokenSetup { max-width: 560px; }
   #tokenSetup input { margin-bottom: 8px; }
   #tokenSetup ol { font-size: 13px; color: var(--muted); padding-left: 18px; }
   .hidden { display: none !important; }
+  .section-title { font-size: 13px; font-weight: 700; color: var(--teal-dark); margin: 18px 0 8px; text-transform: uppercase; letter-spacing: .04em; }
+  .license-box { background: #0d1b2a; color: #9ef7c0; font-family: "Consolas", monospace; font-size: 12px; padding: 10px; border-radius: 6px; word-break: break-all; margin-bottom: 8px; max-height: 100px; overflow-y: auto; }
+  .actions-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
 </style>
 </head>
 <body>
 
 <h1>ambill — License Request Admin</h1>
-<div class="sub">Edit request details (Trial/Paid, Expiry, Payment) before approving in the Actions tab.</div>
+<div class="sub">View any request, edit its details, approve/reject, revoke machines, and more — without touching raw GitHub issue text.</div>
 
 <div id="toast" class="toast"></div>
 
@@ -117,22 +134,41 @@
   <ol>
     <li>GitHub → your profile photo → <b>Settings</b> → <b>Developer settings</b> → <b>Personal access tokens</b> → <b>Fine-grained tokens</b> → <b>Generate new token</b></li>
     <li>Resource owner: <b>ampro-repos</b>. Repository access: <b>Only select repositories</b> → <b>ambill-releases</b></li>
-    <li>Permissions → Repository permissions → <b>Issues</b> → <b>Read and write</b></li>
+    <li>Permissions → Repository permissions:
+      <b>Issues</b> → Read and write ·
+      <b>Actions</b> → Read and write (needed to approve deployments and trigger payment checks) ·
+      <b>Contents</b> → Read and write (needed to revoke machines)
+    </li>
     <li>Generate, copy the token, paste it above.</li>
   </ol>
 </div>
 
 <div id="app" class="hidden">
   <div class="row">
-    <button id="refreshBtn" class="secondary">↻ Refresh list</button>
+    <button id="refreshBtn" class="secondary">↻ Refresh</button>
     <button id="changeTokenBtn" class="secondary">Change token</button>
     <a class="gh-link" href="https://github.com/ampro-repos/ambill-releases/actions" target="_blank">Open Actions tab →</a>
+    <a class="gh-link" href="https://github.com/ampro-repos/ambill-releases/issues" target="_blank">Open Issues tab →</a>
   </div>
 
   <div id="listCard" class="card">
-    <label>Open License Requests</label>
+    <label>License Requests</label>
+    <div class="filter-bar">
+      <select id="fltState">
+        <option value="all">All statuses</option>
+        <option value="open">Open only</option>
+        <option value="closed">Closed only</option>
+      </select>
+      <select id="fltProduct">
+        <option value="all">All products</option>
+        <option value="ambill">ambill</option>
+        <option value="amfreezer">amfreezer</option>
+      </select>
+      <input type="text" id="fltSearch" placeholder="Search company / UID...">
+    </div>
     <ul id="issueList" class="issue-list"></ul>
-    <div id="listEmpty" class="hint hidden">No open requests right now.</div>
+    <div id="listEmpty" class="hint hidden">No requests match this filter.</div>
+    <div id="listLoading" class="hint">Loading...</div>
   </div>
 
   <div id="formCard" class="card hidden">
@@ -142,6 +178,10 @@
     </div>
 
     <div id="readonlyBlock" class="readonly-block"></div>
+    <div id="licenseBox" class="hidden">
+      <div class="hint" style="margin-bottom:4px;">Signed license:</div>
+      <div id="licenseText" class="license-box"></div>
+    </div>
 
     <div class="field-grid">
       <div>
@@ -200,8 +240,24 @@
     </div>
 
     <div class="row" style="margin-top: 16px;">
-      <button id="saveBtn">Save to GitHub</button>
+      <button id="saveBtn">Save Changes</button>
       <span id="saveHint" class="hint"></span>
+    </div>
+
+    <div class="section-title">Actions</div>
+    <div id="approvalHint" class="hint hidden"></div>
+    <div class="actions-row">
+      <button id="approveBtn" class="go">✓ Approve &amp; Sign Now</button>
+      <button id="runPaymentCheckBtn" class="secondary">↻ Run Payment Check Now</button>
+      <button id="closeBtn" class="secondary">Close / Reject Request</button>
+      <button id="reopenBtn" class="secondary hidden">Reopen Request</button>
+      <button id="revokeBtn" class="danger">⛔ Revoke This Machine</button>
+    </div>
+
+    <div class="section-title">Add a Comment</div>
+    <textarea id="commentText" rows="3" placeholder="Note for the record, or a message the customer will see..."></textarea>
+    <div class="row" style="margin-top: 8px;">
+      <button id="commentBtn" class="secondary">Post Comment</button>
     </div>
   </div>
 </div>
@@ -223,15 +279,23 @@ function setField(body, label, value) {
   if (re.test(body)) return body.replace(re, (_, prefix) => prefix + value);
   return body.replace(/\s*$/, "") + "\n\n### " + label + "\n\n" + value + "\n";
 }
-
+function extractLicenseFromComments(comments) {
+  for (const c of comments) {
+    const m = (c.body || "").match(/```\s*\n([\s\S]*?)\n```/);
+    if (m) return m[1].trim();
+  }
+  return null;
+}
+function escapeHtml(s) {
+  return (s || "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
 function toast(msg, ok) {
   const t = document.getElementById("toast");
   t.textContent = msg;
   t.className = "toast " + (ok ? "ok" : "err");
   t.style.display = "block";
-  setTimeout(() => { t.style.display = "none"; }, 3500);
+  setTimeout(() => { t.style.display = "none"; }, 4500);
 }
-
 function getToken() { return localStorage.getItem(TOKEN_KEY) || ""; }
 
 async function gh(path, opts) {
@@ -273,50 +337,138 @@ document.getElementById("changeTokenBtn").onclick = () => {
   showTokenSetup();
 };
 
-// ── Issue list ───────────────────────────────────────────────────────────
-async function loadIssueList() {
-  const list = document.getElementById("issueList");
-  const empty = document.getElementById("listEmpty");
-  list.innerHTML = "";
-  document.getElementById("formCard").classList.add("hidden");
+// ── Waiting-for-approval workflow runs (fetched once per list load, matched
+// to an issue by nearest run created at/after that issue's creation time —
+// there's no first-class "which issue triggered this run" field on a run
+// object for issues-triggered workflows, so this proximity heuristic is what
+// approve-from-here relies on. Always double-check the Actions tab link
+// shown alongside it before trusting an approval blindly). ──────────────────
+let waitingRuns = [];
+async function loadWaitingRuns() {
   try {
-    const issues = await gh(`/issues?labels=license-request&state=open&per_page=50`);
-    if (!issues.length) { empty.classList.remove("hidden"); return; }
-    empty.classList.add("hidden");
-    for (const issue of issues) {
-      const body = issue.body || "";
-      const company = getField(body, "Company Name") || "(no company name)";
-      const uid = getField(body, "Machine ID") || "?";
-      const li = document.createElement("li");
-      li.innerHTML = `<div>
-          <div class="company">${escapeHtml(company)}</div>
-          <div class="meta">#${issue.number} · UID ${escapeHtml(uid)} · opened ${new Date(issue.created_at).toLocaleDateString()}</div>
-        </div>
-        <span class="badge">OPEN</span>`;
-      li.onclick = () => openIssue(issue.number, body);
-      list.appendChild(li);
-    }
+    const data = await gh(`/actions/workflows/license-signing.yml/runs?status=waiting&per_page=50`);
+    waitingRuns = data.workflow_runs || [];
   } catch (e) {
-    toast("Could not load requests: " + e.message, false);
+    waitingRuns = [];
   }
 }
-function escapeHtml(s) {
-  return (s || "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+function findRunForIssue(issueCreatedAt) {
+  const created = new Date(issueCreatedAt).getTime();
+  const candidates = waitingRuns
+    .filter(r => new Date(r.created_at).getTime() >= created - 10000)
+    .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+  return candidates[0] || null;
 }
 
-// ── Form ─────────────────────────────────────────────────────────────────
-let currentIssueNumber = null;
-let currentBody = null;
+// ── Issue list ───────────────────────────────────────────────────────────
+let allIssues = [];
 
-function openIssue(number, body) {
-  currentIssueNumber = number;
-  currentBody = body;
+async function loadIssueList() {
+  const listEl = document.getElementById("issueList");
+  const empty = document.getElementById("listEmpty");
+  const loading = document.getElementById("listLoading");
+  listEl.innerHTML = "";
+  empty.classList.add("hidden");
+  loading.classList.remove("hidden");
+  document.getElementById("formCard").classList.add("hidden");
+  document.getElementById("listCard").classList.remove("hidden");
+  try {
+    const [issues] = await Promise.all([
+      gh(`/issues?labels=license-request&state=all&per_page=100`),
+      loadWaitingRuns()
+    ]);
+    // Fetch comments for every issue so status badges (Signed vs Closed) and
+    // the license box are accurate — fine at this scale (a handful of
+    // requests at a time), well within the 5000/hr authenticated API limit.
+    allIssues = await Promise.all(issues.map(async issue => {
+      let comments = [];
+      try { comments = await gh(`/issues/${issue.number}/comments?per_page=30`); } catch (e) {}
+      return { issue, comments, license: extractLicenseFromComments(comments) };
+    }));
+    renderIssueList();
+  } catch (e) {
+    toast("Could not load requests: " + e.message, false);
+  } finally {
+    loading.classList.add("hidden");
+  }
+}
 
-  document.getElementById("formTitle").textContent = `Request #${number}`;
+function computeStatus(entry) {
+  const { issue, license } = entry;
+  const body = issue.body || "";
+  if (issue.state === "closed") {
+    return license ? { label: "SIGNED", cls: "badge-signed" } : { label: "CLOSED / REJECTED", cls: "badge-closed" };
+  }
+  const paymentRequired = getField(body, "Payment Required").toLowerCase() === "yes";
+  if (paymentRequired) {
+    const hasLink = getField(body, "Payment Link") || getField(body, "Payment UPI Link (GPay)") || getField(body, "Payment UPI Link (PhonePe)");
+    return hasLink ? { label: "AWAITING PAYMENT", cls: "badge-payment" } : { label: "APPROVAL PENDING", cls: "badge-approval" };
+  }
+  const run = findRunForIssue(issue.created_at);
+  if (run) return { label: "AWAITING YOUR APPROVAL", cls: "badge-approval" };
+  return { label: "NEW", cls: "badge-new" };
+}
+
+function renderIssueList() {
+  const listEl = document.getElementById("issueList");
+  const empty = document.getElementById("listEmpty");
+  const stateF = document.getElementById("fltState").value;
+  const productF = document.getElementById("fltProduct").value;
+  const searchF = document.getElementById("fltSearch").value.trim().toLowerCase();
+
+  listEl.innerHTML = "";
+  let shown = 0;
+
+  for (const entry of allIssues) {
+    const { issue } = entry;
+    const body = issue.body || "";
+    if (stateF !== "all" && issue.state !== stateF) continue;
+    const product = getField(body, "Product") || "ambill";
+    if (productF !== "all" && product !== productF) continue;
+    const company = getField(body, "Company Name") || "";
+    const uid = getField(body, "Machine ID") || "";
+    if (searchF && !(company.toLowerCase().includes(searchF) || uid.toLowerCase().includes(searchF))) continue;
+
+    shown++;
+    const status = computeStatus(entry);
+    const li = document.createElement("li");
+    li.innerHTML = `<div>
+        <div class="company">${escapeHtml(company) || "(no company name)"}</div>
+        <div class="meta">#${issue.number} · ${escapeHtml(product)} · UID ${escapeHtml(uid) || "?"} · opened ${new Date(issue.created_at).toLocaleDateString()}</div>
+      </div>
+      <span class="badge ${status.cls}">${status.label}</span>`;
+    li.onclick = () => openIssue(entry);
+    listEl.appendChild(li);
+  }
+  empty.classList.toggle("hidden", shown > 0);
+}
+document.getElementById("fltState").onchange = renderIssueList;
+document.getElementById("fltProduct").onchange = renderIssueList;
+document.getElementById("fltSearch").oninput = renderIssueList;
+
+// ── Detail / form ────────────────────────────────────────────────────────
+let currentEntry = null;
+
+function openIssue(entry) {
+  currentEntry = entry;
+  const { issue, license } = entry;
+  const body = issue.body || "";
+
+  document.getElementById("formTitle").textContent = `Request #${issue.number} (${issue.state})`;
+  const status = computeStatus(entry);
   document.getElementById("readonlyBlock").innerHTML = `
     <div><b>Company:</b> ${escapeHtml(getField(body, "Company Name"))}</div>
     <div><b>Contact:</b> ${escapeHtml(getField(body, "Contact Person"))} — ${escapeHtml(getField(body, "Contact Phone"))}</div>
-    <div><b>Machine ID:</b> ${escapeHtml(getField(body, "Machine ID"))}</div>`;
+    <div><b>Machine ID:</b> ${escapeHtml(getField(body, "Machine ID"))}</div>
+    <div><b>Status:</b> <span class="badge ${status.cls}">${status.label}</span></div>`;
+
+  const licenseBox = document.getElementById("licenseBox");
+  if (license) {
+    licenseBox.classList.remove("hidden");
+    document.getElementById("licenseText").textContent = license;
+  } else {
+    licenseBox.classList.add("hidden");
+  }
 
   setSelectValue("fRequestType", getField(body, "Request Type") || "New Activation");
   document.getElementById("fPreviousUid").value = getField(body, "Previous Machine ID (only if switching computers)");
@@ -326,8 +478,26 @@ function openIssue(number, body) {
   setSelectValue("fPaymentRequired", getField(body, "Payment Required") || "No");
   document.getElementById("fPaymentAmount").value = getField(body, "Payment Amount (INR)");
   setSelectValue("fPaymentProvider", getField(body, "Payment Provider") || "UPI QR");
-
   togglePaymentFields();
+
+  const run = findRunForIssue(issue.created_at);
+  const approveBtn = document.getElementById("approveBtn");
+  const approvalHint = document.getElementById("approvalHint");
+  if (issue.state === "open" && run) {
+    approveBtn.disabled = false;
+    approvalHint.classList.remove("hidden");
+    approvalHint.innerHTML = `Matched to workflow run <a class="gh-link" href="${run.html_url}" target="_blank">#${run.run_number}</a> (started ${new Date(run.created_at).toLocaleString()}) — verify this looks right before approving.`;
+  } else {
+    approveBtn.disabled = true;
+    approvalHint.classList.remove("hidden");
+    approvalHint.textContent = issue.state !== "open"
+      ? "This request is closed — nothing to approve."
+      : "No workflow run is currently waiting on this request (already signed, payment-gated, or not yet triggered). Check the Actions tab.";
+  }
+
+  document.getElementById("closeBtn").classList.toggle("hidden", issue.state !== "open");
+  document.getElementById("reopenBtn").classList.toggle("hidden", issue.state !== "closed");
+  document.getElementById("commentText").value = "";
   document.getElementById("saveHint").textContent = "";
   document.getElementById("listCard").classList.add("hidden");
   document.getElementById("formCard").classList.remove("hidden");
@@ -342,18 +512,15 @@ function togglePaymentFields() {
   document.getElementById("paymentFields").classList.toggle("hidden", !req);
 }
 document.getElementById("fPaymentRequired").onchange = togglePaymentFields;
-document.getElementById("backBtn").onclick = () => {
-  document.getElementById("formCard").classList.add("hidden");
-  document.getElementById("listCard").classList.remove("hidden");
-};
-document.getElementById("refreshBtn").onclick = loadIssueList;
+document.getElementById("backBtn").onclick = () => loadIssueList();
+document.getElementById("refreshBtn").onclick = () => loadIssueList();
 
 document.getElementById("saveBtn").onclick = async () => {
   const btn = document.getElementById("saveBtn");
   btn.disabled = true;
   document.getElementById("saveHint").textContent = "Saving...";
   try {
-    let body = currentBody;
+    let body = currentEntry.issue.body || "";
     body = setField(body, "Request Type", document.getElementById("fRequestType").value);
     body = setField(body, "Previous Machine ID (only if switching computers)", document.getElementById("fPreviousUid").value.trim());
     body = setField(body, "Product", document.getElementById("fProduct").value);
@@ -363,13 +530,115 @@ document.getElementById("saveBtn").onclick = async () => {
     body = setField(body, "Payment Amount (INR)", document.getElementById("fPaymentAmount").value.trim());
     body = setField(body, "Payment Provider", document.getElementById("fPaymentProvider").value);
 
-    await gh(`/issues/${currentIssueNumber}`, { method: "PATCH", body: JSON.stringify({ body }) });
-    currentBody = body;
-    toast(`Saved request #${currentIssueNumber}. Now approve it in the Actions tab.`, true);
-    document.getElementById("saveHint").textContent = "Saved ✓ — go approve the deployment in the Actions tab.";
+    await gh(`/issues/${currentEntry.issue.number}`, { method: "PATCH", body: JSON.stringify({ body }) });
+    currentEntry.issue.body = body;
+    toast(`Saved request #${currentEntry.issue.number}.`, true);
+    document.getElementById("saveHint").textContent = "Saved ✓";
   } catch (e) {
     toast("Save failed: " + e.message, false);
-    document.getElementById("saveHint").textContent = "";
+  } finally {
+    btn.disabled = false;
+  }
+};
+
+document.getElementById("approveBtn").onclick = async () => {
+  const run = findRunForIssue(currentEntry.issue.created_at);
+  if (!run) return;
+  if (!confirm(`Approve workflow run #${run.run_number} and sign this license now?`)) return;
+  const btn = document.getElementById("approveBtn");
+  btn.disabled = true;
+  try {
+    const pending = await gh(`/actions/runs/${run.id}/pending_deployments`);
+    const envIds = pending.map(p => p.environment.id);
+    if (!envIds.length) throw new Error("No pending environment found on this run — it may have already been actioned.");
+    await gh(`/actions/runs/${run.id}/pending_deployments`, {
+      method: "POST",
+      body: JSON.stringify({ environment_ids: envIds, state: "approved", comment: "Approved via ambill admin page" })
+    });
+    toast(`Approved — signing in progress. Refresh in a few seconds.`, true);
+  } catch (e) {
+    toast("Approve failed: " + e.message, false);
+  } finally {
+    btn.disabled = false;
+  }
+};
+
+document.getElementById("runPaymentCheckBtn").onclick = async () => {
+  const btn = document.getElementById("runPaymentCheckBtn");
+  btn.disabled = true;
+  try {
+    await gh(`/actions/workflows/payment-verification.yml/dispatches`, {
+      method: "POST",
+      body: JSON.stringify({ ref: "main" })
+    });
+    toast("Payment check triggered — refresh in ~30s.", true);
+  } catch (e) {
+    toast("Could not trigger payment check: " + e.message, false);
+  } finally {
+    btn.disabled = false;
+  }
+};
+
+document.getElementById("closeBtn").onclick = async () => {
+  if (!confirm(`Close request #${currentEntry.issue.number} without issuing a license?`)) return;
+  try {
+    await gh(`/issues/${currentEntry.issue.number}`, { method: "PATCH", body: JSON.stringify({ state: "closed" }) });
+    toast("Request closed.", true);
+    loadIssueList();
+  } catch (e) {
+    toast("Close failed: " + e.message, false);
+  }
+};
+
+document.getElementById("reopenBtn").onclick = async () => {
+  try {
+    await gh(`/issues/${currentEntry.issue.number}`, { method: "PATCH", body: JSON.stringify({ state: "open" }) });
+    toast("Request reopened.", true);
+    loadIssueList();
+  } catch (e) {
+    toast("Reopen failed: " + e.message, false);
+  }
+};
+
+document.getElementById("revokeBtn").onclick = async () => {
+  const body = currentEntry.issue.body || "";
+  const uid = getField(body, "Machine ID");
+  if (!uid) { toast("No Machine ID found on this request.", false); return; }
+  if (!confirm(`Revoke machine UID ${uid}? This immediately invalidates its license on next app launch (fails open if offline).`)) return;
+  const btn = document.getElementById("revokeBtn");
+  btn.disabled = true;
+  try {
+    const file = await gh(`/contents/revoked-uids.json`);
+    const list = JSON.parse(decodeURIComponent(escape(atob(file.content.replace(/\n/g, "")))) || "[]");
+    list.push({ uid, revokedAt: new Date().toISOString(), reason: "Revoked manually via admin page" });
+    const newContent = btoa(unescape(encodeURIComponent(JSON.stringify(list, null, 2))));
+    await gh(`/contents/revoked-uids.json`, {
+      method: "PUT",
+      body: JSON.stringify({
+        message: `Revoke UID ${uid} (via admin page)`,
+        content: newContent,
+        sha: file.sha
+      })
+    });
+    toast(`UID ${uid} revoked.`, true);
+  } catch (e) {
+    toast("Revoke failed: " + e.message, false);
+  } finally {
+    btn.disabled = false;
+  }
+};
+
+document.getElementById("commentBtn").onclick = async () => {
+  const text = document.getElementById("commentText").value.trim();
+  if (!text) return;
+  const btn = document.getElementById("commentBtn");
+  btn.disabled = true;
+  try {
+    await gh(`/issues/${currentEntry.issue.number}/comments`, { method: "POST", body: JSON.stringify({ body: text }) });
+    toast("Comment posted.", true);
+    document.getElementById("commentText").value = "";
+  } catch (e) {
+    toast("Comment failed: " + e.message, false);
   } finally {
     btn.disabled = false;
   }

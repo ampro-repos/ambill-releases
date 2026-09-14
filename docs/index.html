@@ -343,10 +343,11 @@
         <li>Permissions → Repository permissions:
           <b>Issues</b> → Read and write ·
           <b>Actions</b> → Read and write ·
-          <b>Environments</b> → Read and write ·
+          <b>Deployments</b> → Read and write ·
           <b>Contents</b> → Read and write
         </li>
-        <li>"Environments" is a separate permission from "Actions" — it's specifically what lets Approve &amp; Sign Now review the pending deployment. Easy to miss; without it you'll get a 403 when approving.</li>
+        <li>"Deployments" is a separate permission from "Actions" — per GitHub's own docs, it's specifically what "Approve &amp; Sign Now" needs to review a pending deployment. Easy to miss; without it you'll get a 403.</li>
+        <li>Approving also requires the token's own account to actually be the required reviewer on the <b>license-signing</b> environment (currently <b>mcankalx</b>) — a token from any other account will still 403 even with every permission above granted.</li>
         <li>Generate, copy the token, paste it above.</li>
       </ol>
     </div>
@@ -973,15 +974,19 @@ document.getElementById("approveBtn").onclick = async () => {
   }
 };
 
-// Shown when the token lacks the "Environments" fine-grained permission —
-// the most common cause of a 403 here, since it's a separate permission
-// from "Actions" and easy to miss when generating the token.
+// Shown on a 403 approving a deployment. Two independent causes, both worth
+// checking (per GitHub's own docs for this endpoint): the token is missing
+// the "Deployments" fine-grained permission (a separate permission from
+// "Actions", easy to miss), OR the token's own account isn't the environment's
+// actual required reviewer — only that account can ever approve, regardless
+// of what permissions its token has.
 function approvalHintFallback(run) {
   const approvalHint = document.getElementById("approvalHint");
-  approvalHint.innerHTML = `Your token doesn't have permission to approve deployments yet. Edit your token
-    (<a class="gh-link" href="https://github.com/settings/tokens?type=beta" target="_blank">GitHub → Settings → Developer settings → Fine-grained tokens</a>)
-    and add <b>Environments → Read and write</b> — it's separate from "Actions".
-    In the meantime, approve this one directly:
+  approvalHint.innerHTML = `Your token can't approve deployments yet. Two things to check:
+    <br>1) Edit your token (<a class="gh-link" href="https://github.com/settings/tokens?type=beta" target="_blank">Settings → Developer settings → Fine-grained tokens</a>)
+    and add <b>Deployments → Read and write</b> — separate from "Actions".
+    <br>2) The token must belong to <b>mcankalx</b> specifically (the required reviewer on the license-signing environment) — a token from any other account will 403 no matter its permissions.
+    <br>In the meantime, approve this one directly:
     <a class="gh-link" href="${run.html_url}" target="_blank">open run #${run.run_number} →</a>`;
 }
 

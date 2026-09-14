@@ -804,6 +804,14 @@ async function loadIssueList() {
       return { issue, comments, license: extractLicenseFromComments(comments) };
     }));
     renderIssueList();
+    // Refresh doesn't just repopulate the list — if a request's detail panel is open, it was
+    // holding a stale `currentEntry` (old comments, old license/payment-proof state) that this
+    // reload just made outdated. Re-open it from the freshly fetched allIssues so the panel
+    // reflects reality without the admin having to click the row again.
+    if (selectedIssueNumber != null) {
+      const fresh = allIssues.find(e => e.issue.number === selectedIssueNumber);
+      if (fresh) openIssue(fresh);
+    }
   } catch (e) {
     toast("Could not load requests: " + e.message, false);
   } finally {

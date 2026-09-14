@@ -426,7 +426,7 @@
             <option value="ambill">ambill</option>
             <option value="amfreezer">amfreezer</option>
           </select>
-          <input type="text" id="fltSearch" placeholder="Search company / UID...">
+          <input type="text" id="fltSearch" placeholder="Search company / contact / phone / UID...">
         </div>
       </div>
       <div class="panel-body">
@@ -588,7 +588,7 @@ const TOKEN_KEY = "ambill_admin_pat";
 // "this fix isn't working" report is, more often than not, someone looking at a cached copy
 // from before the fix shipped. Bumped on every deploy so that can be confirmed at a glance
 // (and told apart from a real bug) instead of re-diagnosed from scratch each time.
-const BUILD_TAG = "build 2026-09-14 20:00 UTC";
+const BUILD_TAG = "build 2026-09-14 20:02 UTC";
 document.getElementById("buildTag").textContent = "· " + BUILD_TAG;
 
 function escapeRegex(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
@@ -958,7 +958,9 @@ function renderIssueList() {
     if (productF !== "all" && product !== productF) continue;
     const company = getField(body, "Company Name") || "";
     const uid = getField(body, "Machine ID") || "";
-    if (searchF && !(company.toLowerCase().includes(searchF) || uid.toLowerCase().includes(searchF))) continue;
+    const contactPerson = getField(body, "Contact Person") || "";
+    const contactPhone = getField(body, "Contact Phone") || "";
+    if (searchF && ![company, uid, contactPerson, contactPhone].some(v => v.toLowerCase().includes(searchF))) continue;
 
     shown++;
     const status = computeStatus(entry);

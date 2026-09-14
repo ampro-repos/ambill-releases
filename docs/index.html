@@ -223,6 +223,32 @@
   #tokenSetup ol b { color: var(--navy); }
   .hidden { display: none !important; }
 
+  /* ── Custom confirm modal (replaces window.confirm) ── */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(15,42,61,.45);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 1000; padding: 20px;
+    animation: fadeIn .12s ease;
+  }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .modal-box {
+    background: #fff; border-radius: 14px; max-width: 420px; width: 100%;
+    box-shadow: var(--shadow-lg);
+    animation: popIn .14s cubic-bezier(.2,.8,.3,1.2);
+  }
+  @keyframes popIn { from { transform: scale(.95) translateY(6px); opacity: 0; } to { transform: none; opacity: 1; } }
+  .modal-box .modal-icon {
+    width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-size: 20px; margin: 22px auto 4px;
+  }
+  .modal-box.warn .modal-icon { background: #fff4d6; color: #a3720a; }
+  .modal-box.danger .modal-icon { background: var(--danger-bg); color: var(--danger); }
+  .modal-box.info .modal-icon { background: var(--teal-light); color: var(--teal); }
+  .modal-box h3 { text-align: center; font-size: 16px; margin: 6px 20px 6px; color: var(--navy); }
+  .modal-box p { text-align: center; font-size: 13.5px; color: var(--muted); margin: 0 22px 20px; line-height: 1.6; }
+  .modal-actions { display: flex; gap: 10px; padding: 0 22px 22px; }
+  .modal-actions button { flex: 1; justify-content: center; padding: 10px 14px; }
+
   .section-title {
     font-size: 12px; font-weight: 700; color: var(--navy);
     margin: 22px 0 10px; text-transform: uppercase; letter-spacing: .06em;
@@ -299,8 +325,10 @@
         <li>Permissions → Repository permissions:
           <b>Issues</b> → Read and write ·
           <b>Actions</b> → Read and write ·
+          <b>Environments</b> → Read and write ·
           <b>Contents</b> → Read and write
         </li>
+        <li>"Environments" is a separate permission from "Actions" — it's specifically what lets Approve &amp; Sign Now review the pending deployment. Easy to miss; without it you'll get a 403 when approving.</li>
         <li>Generate, copy the token, paste it above.</li>
       </ol>
     </div>
@@ -449,6 +477,18 @@
   </div>
 </div>
 
+<div id="modalOverlay" class="modal-overlay hidden">
+  <div id="modalBox" class="modal-box warn">
+    <div id="modalIcon" class="modal-icon">?</div>
+    <h3 id="modalTitle">Are you sure?</h3>
+    <p id="modalMessage"></p>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="modalCancelBtn">Cancel</button>
+      <button class="btn-primary" id="modalConfirmBtn">Confirm</button>
+    </div>
+  </div>
+</div>
+
 <script>
 const OWNER = "ampro-repos";
 const REPO = "ambill-releases";
@@ -484,6 +524,44 @@ function toast(msg, ok) {
   setTimeout(() => { t.style.display = "none"; }, 4500);
 }
 function getToken() { return localStorage.getItem(TOKEN_KEY) || ""; }
+
+// ── Custom confirm modal (replaces window.confirm, which can't be styled
+// and looks jarring next to the rest of the page). Returns a Promise<bool>. ──
+function customConfirm(message, opts) {
+  opts = opts || {};
+  const overlay = document.getElementById("modalOverlay");
+  const box = document.getElementById("modalBox");
+  const icon = document.getElementById("modalIcon");
+  const kind = opts.kind || "warn";   // warn | danger | info
+  box.className = "modal-box " + kind;
+  icon.textContent = kind === "danger" ? "⛔" : kind === "info" ? "ℹ" : "⚠";
+  document.getElementById("modalTitle").textContent = opts.title || "Are you sure?";
+  document.getElementById("modalMessage").textContent = message;
+  const confirmBtn = document.getElementById("modalConfirmBtn");
+  confirmBtn.textContent = opts.confirmText || "Confirm";
+  confirmBtn.className = kind === "danger" ? "btn-danger" : "btn-primary";
+  overlay.classList.remove("hidden");
+
+  return new Promise(resolve => {
+    function cleanup(result) {
+      overlay.classList.add("hidden");
+      confirmBtn.onclick = null;
+      cancelBtn.onclick = null;
+      overlay.onclick = null;
+      document.removeEventListener("keydown", onKey);
+      resolve(result);
+    }
+    function onKey(e) {
+      if (e.key === "Escape") cleanup(false);
+      if (e.key === "Enter") cleanup(true);
+    }
+    const cancelBtn = document.getElementById("modalCancelBtn");
+    confirmBtn.onclick = () => cleanup(true);
+    cancelBtn.onclick = () => cleanup(false);
+    overlay.onclick = (e) => { if (e.target === overlay) cleanup(false); };
+    document.addEventListener("keydown", onKey);
+  });
+}
 
 async function gh(path, opts) {
   const res = await fetch(API + path, {
@@ -750,7 +828,11 @@ document.getElementById("saveBtn").onclick = async () => {
 document.getElementById("approveBtn").onclick = async () => {
   const run = findRunForIssue(currentEntry.issue.created_at);
   if (!run) return;
-  if (!confirm(`Approve workflow run #${run.run_number} and sign this license now?`)) return;
+  const ok = await customConfirm(
+    `Approve workflow run #${run.run_number} and sign this license now?`,
+    { title: "Approve & Sign", confirmText: "Approve & Sign", kind: "info" }
+  );
+  if (!ok) return;
   const btn = document.getElementById("approveBtn");
   btn.disabled = true;
   try {
@@ -763,11 +845,28 @@ document.getElementById("approveBtn").onclick = async () => {
     });
     toast(`Approved — signing in progress. Refresh in a few seconds.`, true);
   } catch (e) {
-    toast("Approve failed: " + e.message, false);
+    if (e.message.includes("403") || e.message.includes("not accessible")) {
+      approvalHintFallback(run);
+      toast("Your token can't approve deployments yet — see the note below.", false);
+    } else {
+      toast("Approve failed: " + e.message, false);
+    }
   } finally {
     btn.disabled = false;
   }
 };
+
+// Shown when the token lacks the "Environments" fine-grained permission —
+// the most common cause of a 403 here, since it's a separate permission
+// from "Actions" and easy to miss when generating the token.
+function approvalHintFallback(run) {
+  const approvalHint = document.getElementById("approvalHint");
+  approvalHint.innerHTML = `Your token doesn't have permission to approve deployments yet. Edit your token
+    (<a class="gh-link" href="https://github.com/settings/tokens?type=beta" target="_blank">GitHub → Settings → Developer settings → Fine-grained tokens</a>)
+    and add <b>Environments → Read and write</b> — it's separate from "Actions".
+    In the meantime, approve this one directly:
+    <a class="gh-link" href="${run.html_url}" target="_blank">open run #${run.run_number} →</a>`;
+}
 
 document.getElementById("runPaymentCheckBtn").onclick = async () => {
   const btn = document.getElementById("runPaymentCheckBtn");
@@ -786,7 +885,11 @@ document.getElementById("runPaymentCheckBtn").onclick = async () => {
 };
 
 document.getElementById("closeBtn").onclick = async () => {
-  if (!confirm(`Close request #${currentEntry.issue.number} without issuing a license?`)) return;
+  const ok = await customConfirm(
+    `Close request #${currentEntry.issue.number} without issuing a license?`,
+    { title: "Close / Reject Request", confirmText: "Close Request", kind: "warn" }
+  );
+  if (!ok) return;
   try {
     await gh(`/issues/${currentEntry.issue.number}`, { method: "PATCH", body: JSON.stringify({ state: "closed" }) });
     toast("Request closed.", true);
@@ -810,7 +913,11 @@ document.getElementById("revokeBtn").onclick = async () => {
   const body = currentEntry.issue.body || "";
   const uid = getField(body, "Machine ID");
   if (!uid) { toast("No Machine ID found on this request.", false); return; }
-  if (!confirm(`Revoke machine UID ${uid}? This immediately invalidates its license on next app launch (fails open if offline).`)) return;
+  const ok = await customConfirm(
+    `Revoke machine UID ${uid}? This immediately invalidates its license on next app launch (fails open if offline).`,
+    { title: "Revoke This Machine", confirmText: "Revoke", kind: "danger" }
+  );
+  if (!ok) return;
   const btn = document.getElementById("revokeBtn");
   btn.disabled = true;
   try {

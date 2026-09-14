@@ -230,6 +230,36 @@
   }
   .callout b { color: var(--navy); }
 
+  /* ── Live workflow-run progress (mirrors GitHub's own Actions run view: an overall bar
+     plus a per-step checklist) shown while a signing/payment-check job is running ── */
+  .run-progress-card {
+    background: #fff; border: 1px solid var(--border); border-radius: 9px;
+    padding: 13px 15px; margin-bottom: 4px;
+  }
+  .run-progress-title {
+    font-size: 12px; font-weight: 700; color: var(--navy); text-transform: uppercase;
+    letter-spacing: .04em; margin-bottom: 9px; display: flex; align-items: center; gap: 8px;
+  }
+  .run-progress-bar { height: 6px; border-radius: 4px; background: #e9edf2; overflow: hidden; margin-bottom: 12px; }
+  .run-progress-fill { height: 100%; background: linear-gradient(90deg, var(--teal), #0ea5c4); border-radius: 4px; transition: width .4s ease; }
+  .run-steps { display: flex; flex-direction: column; gap: 7px; }
+  .run-step { display: flex; align-items: center; gap: 9px; font-size: 12.5px; color: #475569; }
+  .run-step-icon {
+    width: 16px; height: 16px; border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700;
+  }
+  .run-step.step-ok .run-step-icon { background: var(--success-bg); color: var(--success); }
+  .run-step.step-ok { color: var(--text); }
+  .run-step.step-fail .run-step-icon { background: var(--danger-bg); color: var(--danger); }
+  .run-step.step-fail { color: var(--danger); font-weight: 600; }
+  .run-step.step-skip .run-step-icon { background: #f1f3f5; color: #94a3b8; }
+  .run-step.step-skip { color: #94a3b8; }
+  .run-step.step-active .run-step-icon { background: var(--teal-light); color: var(--teal); animation: pulse 1.1s ease-in-out infinite; }
+  .run-step.step-active { color: var(--navy); font-weight: 600; }
+  .run-step.step-pending .run-step-icon { background: #f1f3f5; border: 1.5px solid #dbe2ea; }
+  .run-step.step-pending { color: #94a3b8; }
+  @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .55; transform: scale(.85); } }
+
   .readonly-block {
     background: linear-gradient(180deg, #f8fbfc, #f1f6f8);
     border: 1px solid var(--border);
@@ -510,6 +540,7 @@
 
           <div class="section-title">Actions</div>
           <div id="approvalHint" class="callout hidden"></div>
+          <div id="runProgressBox" class="hidden" style="margin-bottom:14px;"></div>
           <div class="actions-row">
             <button id="markPaidBtn" class="btn-primary hidden">✓ Mark Payment Received &amp; Release License</button>
             <button id="approveBtn" class="btn-teal">✓ Approve &amp; Sign Now</button>
@@ -557,7 +588,7 @@ const TOKEN_KEY = "ambill_admin_pat";
 // "this fix isn't working" report is, more often than not, someone looking at a cached copy
 // from before the fix shipped. Bumped on every deploy so that can be confirmed at a glance
 // (and told apart from a real bug) instead of re-diagnosed from scratch each time.
-const BUILD_TAG = "build 2026-09-14 19:40 UTC";
+const BUILD_TAG = "build 2026-09-14 20:00 UTC";
 document.getElementById("buildTag").textContent = "· " + BUILD_TAG;
 
 function escapeRegex(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
@@ -963,6 +994,7 @@ function openIssue(entry) {
   document.getElementById("emptyDetail").classList.add("hidden");
   document.getElementById("formCard").classList.remove("hidden");
   document.getElementById("layoutRoot").classList.add("detail-open");
+  hideRunProgress(); // clear any run-progress checklist left over from a different request
   renderIssueList();
 
   document.getElementById("formTitle").textContent = `Request #${issue.number}`;
@@ -1107,13 +1139,19 @@ document.getElementById("markPaidBtn").onclick = async () => {
     document.getElementById("fPaymentRequired").value = "No";
     togglePaymentFields();
     await saveFields();
+    const dispatchTime = Date.now();
     await gh(`/actions/workflows/payment-verification.yml/dispatches`, {
       method: "POST",
       body: JSON.stringify({ ref: "main" })
     });
     btn.textContent = "⏳ Releasing license...";
     toast("Marked as paid — releasing the license now.", true);
-    await pollForApprovalResult(issueNumber);
+    // A workflow_dispatch call doesn't hand back the run it creates, so this is a fire-and-
+    // forget best-effort lookup by timing, not awaited here — pollForApprovalResult picks up
+    // the run id whenever this resolves (or never shows the checklist if it comes up empty,
+    // e.g. an API hiccup — the issue-state polling below is unaffected either way).
+    const runLookup = findRunAfterDispatch("payment-verification.yml", dispatchTime);
+    await pollForApprovalResult(issueNumber, runLookup);
     return;
   } catch (e) {
     toast("Could not mark as paid: " + e.message, false);
@@ -1146,7 +1184,7 @@ document.getElementById("approveBtn").onclick = async () => {
     waitingRuns = waitingRuns.filter(r => r.id !== run.id);
     btn.textContent = "⏳ Signing in progress...";
     toast("Approved — waiting for the signing job to finish.", true);
-    await pollForApprovalResult(issueNumber);
+    await pollForApprovalResult(issueNumber, run.id);
     // Leave the button disabled/relabeled on success — re-approving an already-approved
     // run makes no sense, and openIssue() (called by pollForApprovalResult once something
     // changes) will overwrite this label/state correctly for whatever comes next anyway.
@@ -1169,12 +1207,83 @@ async function fetchIssueEntry(number) {
   return { issue, comments, license: extractLicenseFromComments(comments) };
 }
 
+// ── Live run progress (GitHub-Actions-style step checklist) ────────────────────────────────
+// A workflow_dispatch call (used by "Mark Payment Received") doesn't return a run id — GitHub
+// has no direct way to link a dispatch call to the run it created. Same proximity heuristic
+// already used by findRunForIssue: list recent runs of that workflow and take the first one
+// created at/after the dispatch, giving it a few attempts since the run can take a couple of
+// seconds to appear in the list at all.
+async function findRunAfterDispatch(workflowFile, sinceTimeMs) {
+  for (let attempt = 0; attempt < 6; attempt++) {
+    await new Promise(r => setTimeout(r, 1500));
+    try {
+      const data = await gh(`/actions/workflows/${workflowFile}/runs?event=workflow_dispatch&per_page=5`);
+      const run = (data.workflow_runs || []).find(r => new Date(r.created_at).getTime() >= sinceTimeMs - 5000);
+      if (run) return run;
+    } catch (e) { /* keep trying */ }
+  }
+  return null;
+}
+
+// payment-verification.yml runs one matrix job per pending issue in a single run, named like
+// "verify-and-sign (2, false, UPI QR, ...)" with the issue number first — match on that so a
+// run covering several issues at once still shows THIS issue's own steps. license-signing.yml
+// has no matrix (a single "sign" job), where matching nothing and falling back to jobs[0] is
+// exactly right.
+async function fetchStepsForRun(runId, issueNumber) {
+  const data = await gh(`/actions/runs/${runId}/jobs`);
+  const jobs = data.jobs || [];
+  const job = jobs.find(j => j.name.includes(`(${issueNumber},`)) || jobs[0];
+  return job ? job.steps : null;
+}
+
+function renderRunProgress(steps) {
+  const box = document.getElementById("runProgressBox");
+  if (!steps || !steps.length) { box.classList.add("hidden"); box.innerHTML = ""; return; }
+
+  const total = steps.length;
+  const done = steps.filter(s => s.status === "completed").length;
+  const pct = Math.round((done / total) * 100);
+
+  const rows = steps.map(s => {
+    let icon = "○", cls = "step-pending";
+    if (s.status === "completed") {
+      if (s.conclusion === "success") { icon = "✓"; cls = "step-ok"; }
+      else if (s.conclusion === "skipped" || s.conclusion === "cancelled") { icon = "–"; cls = "step-skip"; }
+      else { icon = "✕"; cls = "step-fail"; }
+    } else if (s.status === "in_progress") {
+      icon = "●"; cls = "step-active";
+    }
+    return `<div class="run-step ${cls}"><span class="run-step-icon">${icon}</span>${escapeHtml(s.name)}</div>`;
+  }).join("");
+
+  box.innerHTML = `
+    <div class="run-progress-card">
+      <div class="run-progress-title">⚙ Signing job progress</div>
+      <div class="run-progress-bar"><div class="run-progress-fill" style="width:${pct}%"></div></div>
+      <div class="run-steps">${rows}</div>
+    </div>`;
+  box.classList.remove("hidden");
+}
+
+function hideRunProgress() {
+  const box = document.getElementById("runProgressBox");
+  box.classList.add("hidden");
+  box.innerHTML = "";
+}
+
 // After approving, the signing job still has to actually run (checkout, read fields, sign
 // or generate a payment link, post back to the issue) — typically ~15-30s, not instant. Polls
 // the single issue directly (cheap — 2 calls per attempt) rather than re-fetching everything,
 // and only re-renders once something has actually changed, so the admin isn't left staring at
 // a page that looks like nothing happened after a successful approval.
-async function pollForApprovalResult(issueNumber) {
+// runIdOrPromise (optional): a plain run id (approveBtn always has one directly) or a Promise
+// that resolves to one (markPaidBtn's findRunAfterDispatch lookup, still in flight when this
+// is called — not awaited upfront so the actual issue-state polling isn't delayed by it).
+// Whichever it is, once a run id is known, each attempt also fetches that run's job steps and
+// renders a GitHub-Actions-style progress bar + checklist, instead of leaving the admin
+// watching only a "checking again shortly (N/12)" counter with no sense of what's happening.
+async function pollForApprovalResult(issueNumber, runIdOrPromise) {
   const approvalHint = document.getElementById("approvalHint");
   const originalBody = currentEntry.issue.body || "";
   const maxAttempts = 12;
@@ -1184,7 +1293,16 @@ async function pollForApprovalResult(issueNumber) {
   // starts (another Refresh click, another poll), myGen stops matching and every render below
   // is skipped rather than fighting the newer operation for the last word.
   const myGen = ++renderGeneration;
+  let runId = null;
+  if (runIdOrPromise != null) {
+    if (typeof runIdOrPromise.then === "function") {
+      runIdOrPromise.then(r => { if (r) runId = r.id; });
+    } else {
+      runId = runIdOrPromise;
+    }
+  }
   let fresh = null;
+  let lastSteps = null;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     if (myGen !== renderGeneration) return;
     if (approvalHint) {
@@ -1195,6 +1313,12 @@ async function pollForApprovalResult(issueNumber) {
     if (myGen !== renderGeneration) return;
     try { fresh = await fetchIssueEntry(issueNumber); } catch (e) { continue; }
     if (myGen !== renderGeneration) return;
+
+    if (runId) {
+      try { lastSteps = await fetchStepsForRun(runId, issueNumber); } catch (e) { /* keep last known */ }
+      if (myGen !== renderGeneration) return;
+      renderRunProgress(lastSteps);
+    }
 
     const idx = allIssues.findIndex(e => e.issue.number === issueNumber);
     if (idx >= 0) allIssues[idx] = fresh;
@@ -1210,6 +1334,10 @@ async function pollForApprovalResult(issueNumber) {
       const stillSelected = currentEntry && currentEntry.issue.number === issueNumber;
       if (stillSelected) openIssue(fresh);
       else renderIssueList();
+      // openIssue() clears runProgressBox as part of its own render (see openIssue) — put the
+      // completed checklist back so the admin sees a full green run, not just a toast, on the
+      // exact result they were watching for.
+      if (stillSelected && lastSteps) renderRunProgress(lastSteps);
       toast(closedWithLicense ? "License signed and the request was closed." : "Payment link is ready.", true);
       return;
     }
@@ -1222,6 +1350,7 @@ async function pollForApprovalResult(issueNumber) {
   if (fresh) {
     const stillSelected = currentEntry && currentEntry.issue.number === issueNumber;
     if (stillSelected) openIssue(fresh); else renderIssueList();
+    if (stillSelected && lastSteps) renderRunProgress(lastSteps);
   }
   if (approvalHint) {
     approvalHint.classList.remove("hidden");

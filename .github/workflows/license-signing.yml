@@ -74,6 +74,35 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Re-reads the issue FRESH at this point (not the `parse` job's earlier snapshot) —
+      # Ambill Support can edit Product / Requested License Type / Requested Expiry (or
+      # even Machine ID) on the issue any time before approving, and whatever is there the
+      # moment this step runs — after approval — is what actually gets signed.
+      - name: Read current issue fields
+        id: fields
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = await github.rest.issues.get({ ...context.repo, issue_number: context.issue.number });
+            const body = issue.data.body || "";
+
+            function field(label) {
+              const re = new RegExp("### " + label + "\\s*\\n\\s*\\n([^\\n]*)");
+              const m = body.match(re);
+              return m ? m[1].trim() : "";
+            }
+
+            const machineUid  = field("Machine ID");
+            const product     = field("Product") || "ambill";
+            const licenseType = field("Requested License Type") || "Paid";
+            let expiryDays    = parseInt(field("Requested Expiry \\(days from approval\\)"), 10);
+            if (!expiryDays || expiryDays <= 0) expiryDays = 365;
+
+            core.setOutput('machine_uid', machineUid);
+            core.setOutput('product', product);
+            core.setOutput('is_trial', licenseType.trim().toLowerCase() === 'trial' ? 'true' : 'false');
+            core.setOutput('expiry_days', String(expiryDays));
+
       - name: Sign license
         id: sign
         env:
@@ -81,10 +110,16 @@ jobs:
           LICENSE_SIGNING_PFX_PASSWORD: ${{ secrets.LICENSE_SIGNING_PFX_PASSWORD }}
         shell: pwsh
         run: |
-          $uid = "${{ needs.parse.outputs.machine_uid }}"
+          $uid = "${{ steps.fields.outputs.machine_uid }}"
+          $product = "${{ steps.fields.outputs.product }}"
+          $expiryDays = "${{ steps.fields.outputs.expiry_days }}"
+          $isTrial = "${{ steps.fields.outputs.is_trial }}" -eq "true"
           $exe = "tools\LicenseSigningCLI\LicenseSigningCLI.exe"
 
-          $licenseString = & $exe --uid $uid --appname ambill --expiry-days 365
+          $cliArgs = @("--uid", $uid, "--appname", $product, "--expiry-days", $expiryDays)
+          if ($isTrial) { $cliArgs += "--trial" }
+
+          $licenseString = & $exe @cliArgs
           if ($LASTEXITCODE -ne 0) {
             Write-Error "Signing failed: $licenseString"
             exit 1
@@ -98,11 +133,16 @@ jobs:
         with:
           script: |
             const licenseString = `${{ steps.sign.outputs.license_string }}`;
+            const product = `${{ steps.fields.outputs.product }}`;
+            const expiryDays = `${{ steps.fields.outputs.expiry_days }}`;
+            const isTrial = `${{ steps.fields.outputs.is_trial }}` === 'true';
+
+            const summary = `Product: **${product}** · Type: **${isTrial ? 'Trial' : 'Paid'}** · Expires in **${expiryDays} days** from today.`;
 
             await github.rest.issues.createComment({
               ...context.repo,
               issue_number: context.issue.number,
-              body: "Your license has been approved and generated:\n\n```\n" + licenseString + "\n```\n\nPaste this into the ambill Activate License screen if it doesn't fill in automatically."
+              body: "Your license has been approved and generated.\n\n" + summary + "\n\n```\n" + licenseString + "\n```\n\nPaste this into the ambill Activate License screen if it doesn't fill in automatically."
             });
 
             await github.rest.issues.update({

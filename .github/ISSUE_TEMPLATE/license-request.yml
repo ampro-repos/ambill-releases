@@ -45,3 +45,38 @@ body:
         - Renewal
     validations:
       required: true
+  - type: dropdown
+    id: product
+    attributes:
+      label: Product
+      options:
+        - ambill
+        - amfreezer
+      default: 0
+    validations:
+      required: true
+  - type: dropdown
+    id: license_type
+    attributes:
+      label: Requested License Type
+      options:
+        - Paid
+        - Trial
+      default: 0
+    validations:
+      required: true
+  - type: input
+    id: expiry_days
+    attributes:
+      label: Requested Expiry (days from approval)
+      placeholder: "365"
+    validations:
+      required: true
+  - type: markdown
+    attributes:
+      value: |
+        ---
+        **Ambill Support:** the fields above are the customer's request — before
+        approving, you can edit this issue (product, license type, expiry) to
+        whatever you're actually granting. Whatever is in the issue at the moment
+        you approve is what gets signed.

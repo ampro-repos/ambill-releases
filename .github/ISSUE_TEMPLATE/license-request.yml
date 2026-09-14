@@ -100,13 +100,28 @@ body:
       placeholder: "5000"
     validations:
       required: false
+  - type: dropdown
+    id: payment_provider
+    attributes:
+      label: Payment Provider
+      description: >-
+        Admin-set only. UPI QR shows a QR code for your personal UPI ID(s) inside the app —
+        no automatic verification, so you confirm the payment yourself (bank/UPI app) and
+        then flip Payment Required back to No to release the license. Razorpay auto-verifies
+        via its API (needs RAZORPAY_KEY_ID/RAZORPAY_KEY_SECRET secrets set on this repo).
+      options:
+        - UPI QR
+        - Razorpay
+      default: 0
+    validations:
+      required: false
   - type: markdown
     attributes:
       value: |
         ---
         **Ambill Support:** the fields above are the customer's request — before
         approving, you can edit this issue (product, license type, expiry, and
-        whether payment is required + the amount) to whatever you're actually
-        granting. Whatever is in the issue at the moment you approve is what
-        determines what happens next — signed immediately, or a payment link
-        generated first if Payment Required is Yes.
+        whether payment is required + the amount + provider) to whatever you're
+        actually granting. Whatever is in the issue at the moment you approve is
+        what determines what happens next — signed immediately, or a payment QR
+        / link generated first if Payment Required is Yes.

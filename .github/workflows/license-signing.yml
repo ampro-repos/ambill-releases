@@ -101,6 +101,7 @@ jobs:
             const previousUid = field("Previous Machine ID \\(only if switching computers\\)");
             const paymentRequired = field("Payment Required").trim().toLowerCase() === 'yes';
             const paymentAmount = field("Payment Amount \\(INR\\)");
+            const paymentProvider = field("Payment Provider") || "UPI QR";
 
             core.setOutput('machine_uid', machineUid);
             core.setOutput('product', product);
@@ -109,6 +110,7 @@ jobs:
             core.setOutput('previous_uid', previousUid);
             core.setOutput('payment_required', paymentRequired ? 'true' : 'false');
             core.setOutput('payment_amount', paymentAmount);
+            core.setOutput('payment_provider', paymentProvider);
             core.setOutput('company_name', ${{ toJson(needs.parse.outputs.company_name) }});
 
       # Payment not required (the default/original path) — sign immediately, same as before.
@@ -138,12 +140,47 @@ jobs:
           # GITHUB_OUTPUT, not the log, so the license string itself is never printed anywhere
           "license_string=$licenseString" >> $env:GITHUB_OUTPUT
 
-      # Payment required — generate a Razorpay payment link and stop here. Nothing gets signed
-      # in this run; the scheduled Payment Verification workflow independently confirms payment
-      # directly against Razorpay's own API (not this app's say-so) before ever signing, so no
-      # second manual approval is needed once payment clears.
+      # UPI QR (default) — build the payment deep links directly, no external API call needed.
+      # Stops here just like the Razorpay path below: nothing gets signed in this run. Unlike
+      # Razorpay there's no API to auto-verify a personal UPI payment, so Ambill Support
+      # confirms it themselves (their own bank/UPI app) and flips Payment Required back to No —
+      # the scheduled Payment Verification sweep picks that edit up and signs directly.
+      - name: Generate UPI payment QR data
+        if: steps.fields.outputs.payment_required == 'true' && steps.fields.outputs.payment_provider != 'Razorpay'
+        id: upiqr
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const amountRupees = parseInt("${{ steps.fields.outputs.payment_amount }}", 10);
+            if (!amountRupees || amountRupees <= 0) {
+              core.setFailed("Payment Amount (INR) must be a positive number.");
+              return;
+            }
+
+            // Your own personal UPI IDs — not secrets, this is exactly what's shown on any
+            // payment QR code to whoever scans it. Update here if either ever changes.
+            const providers = [
+              { label: "GPay", vpa: "mahanteshankalakoti@okicici" },
+              { label: "PhonePe", vpa: "8088677370@axl" }
+            ];
+
+            const payeeName = encodeURIComponent("Ambill");
+            const note = encodeURIComponent(`Ambill-${context.issue.number}`);
+
+            function upiLink(vpa) {
+              return `upi://pay?pa=${encodeURIComponent(vpa)}&pn=${payeeName}&am=${amountRupees}&cu=INR&tn=${note}`;
+            }
+
+            core.setOutput('upi_link_gpay', upiLink(providers[0].vpa));
+            core.setOutput('upi_link_phonepe', upiLink(providers[1].vpa));
+            core.setOutput('payment_reference', `UPI-${context.issue.number}`);
+
+      # Payment required + provider is Razorpay — generate a Razorpay payment link and stop
+      # here. Nothing gets signed in this run; the scheduled Payment Verification workflow
+      # independently confirms payment directly against Razorpay's own API (not this app's
+      # say-so) before ever signing, so no second manual approval is needed once payment clears.
       - name: Generate payment link
-        if: steps.fields.outputs.payment_required == 'true'
+        if: steps.fields.outputs.payment_required == 'true' && steps.fields.outputs.payment_provider == 'Razorpay'
         id: paylink
         env:
           RAZORPAY_KEY_ID: ${{ secrets.RAZORPAY_KEY_ID }}
@@ -173,14 +210,15 @@ jobs:
           "payment_link_url=$($response.short_url)" >> $env:GITHUB_OUTPUT
 
       - name: Post payment link on the issue
-        if: steps.fields.outputs.payment_required == 'true'
+        if: steps.fields.outputs.payment_required == 'true' && steps.fields.outputs.payment_provider == 'Razorpay'
         uses: actions/github-script@v7
         with:
           script: |
             const issue = await github.rest.issues.get({ ...context.repo, issue_number: context.issue.number });
             const newBody = (issue.data.body || "") +
               "\n\n### Payment Link\n\n${{ steps.paylink.outputs.payment_link_url }}\n\n" +
-              "### Payment Link ID\n\n${{ steps.paylink.outputs.payment_link_id }}\n";
+              "### Payment Link ID\n\n${{ steps.paylink.outputs.payment_link_id }}\n\n" +
+              "### Payment Reference\n\n${{ steps.paylink.outputs.payment_link_id }}\n";
 
             await github.rest.issues.update({ ...context.repo, issue_number: context.issue.number, body: newBody });
 
@@ -190,6 +228,27 @@ jobs:
               body: "Payment required to complete this request — **₹${{ steps.fields.outputs.payment_amount }}**.\n\n" +
                 "Pay here: ${{ steps.paylink.outputs.payment_link_url }}\n\n" +
                 "Your license will be issued automatically once payment is confirmed (may take a few minutes)."
+            });
+
+      - name: Post UPI payment QR data on the issue
+        if: steps.fields.outputs.payment_required == 'true' && steps.fields.outputs.payment_provider != 'Razorpay'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = await github.rest.issues.get({ ...context.repo, issue_number: context.issue.number });
+            const newBody = (issue.data.body || "") +
+              "\n\n### Payment UPI Link (GPay)\n\n${{ steps.upiqr.outputs.upi_link_gpay }}\n\n" +
+              "### Payment UPI Link (PhonePe)\n\n${{ steps.upiqr.outputs.upi_link_phonepe }}\n\n" +
+              "### Payment Reference\n\n${{ steps.upiqr.outputs.payment_reference }}\n";
+
+            await github.rest.issues.update({ ...context.repo, issue_number: context.issue.number, body: newBody });
+
+            await github.rest.issues.createComment({
+              ...context.repo,
+              issue_number: context.issue.number,
+              body: "Payment required to complete this request — **₹${{ steps.fields.outputs.payment_amount }}**.\n\n" +
+                "Open the ambill Activate License screen and tap Pay Now to see the QR code, or scan/pay directly using the links posted on this issue.\n\n" +
+                "Ambill Support will confirm the payment manually and release the license — this may take a while."
             });
 
       # Best-effort: a hiccup here (e.g. a push race with another concurrent approval) must

@@ -51,12 +51,19 @@ jobs:
             // license-signing.yml's own `opened`-triggered run only ever fires once per issue
             // and can't see this later edit, so this scheduled sweep is the only thing that
             // picks it up.
+            // "Payment Reference" is the current marker (set for both providers); "Payment
+            // Link ID" alone is kept as a fallback so issues created before the Payment
+            // Provider field existed (Razorpay-only era) still get picked up.
             const pending = issues
               .map(i => ({ number: i.number, body: i.body || "" }))
-              .filter(i => field(i.body, "Payment Link ID"))
+              .filter(i => field(i.body, "Payment Reference") || field(i.body, "Payment Link ID"))
               .map(i => ({
                 number: i.number,
                 needsPayment: field(i.body, "Payment Required").toLowerCase() === "yes",
+                // Older issues (pre-dating the Payment Provider field) never had a choice —
+                // they were always Razorpay. Only default to UPI QR when there's no evidence
+                // a Razorpay link was ever created for this issue.
+                provider: field(i.body, "Payment Provider") || (field(i.body, "Payment Link ID") ? "Razorpay" : "UPI QR"),
                 linkId: field(i.body, "Payment Link ID"),
                 machineUid: field(i.body, "Machine ID"),
                 product: field(i.body, "Product") || "ambill",
@@ -78,8 +85,9 @@ jobs:
     runs-on: windows-latest
     # Same signing secrets as license-signing.yml's environment, duplicated onto this one
     # deliberately WITHOUT a required-reviewer gate — the trust boundary for this workflow is
-    # the Razorpay status check below, not a second human click on top of the approval that
-    # already happened to generate the payment link in the first place.
+    # either the Razorpay status check below (Razorpay path) or Ambill Support's own manual
+    # confirmation via the Payment Required toggle (UPI path), not a second human click on top
+    # of the approval that already happened to generate the payment link/QR in the first place.
     environment: license-signing-auto
     steps:
       - name: Checkout
@@ -93,13 +101,19 @@ jobs:
         shell: pwsh
         run: |
           $needsPayment = "${{ matrix.issue.needsPayment }}" -eq "true"
+          $provider = "${{ matrix.issue.provider }}"
 
           if (-not $needsPayment) {
             # Admin switched Payment Required back to No after previously requiring it —
             # that edit IS the approval to let this customer in without paying, same as it
             # would have been if payment had never been required in the first place. Nothing
-            # to verify against Razorpay in this case.
+            # to verify against Razorpay (or manually, for UPI) in this case.
             "is_paid=true" >> $env:GITHUB_OUTPUT
+          } elseif ($provider -ne "Razorpay") {
+            # UPI QR — no API exists to auto-verify a personal UPI payment. Leave this pending;
+            # Ambill Support confirms it themselves (their own bank/UPI app) and flips Payment
+            # Required to No, which the branch above catches on a later run of this sweep.
+            "is_paid=false" >> $env:GITHUB_OUTPUT
           } else {
             $authBytes = [System.Text.Encoding]::UTF8.GetBytes("${env:RAZORPAY_KEY_ID}:${env:RAZORPAY_KEY_SECRET}")
             $authHeader = "Basic " + [Convert]::ToBase64String($authBytes)

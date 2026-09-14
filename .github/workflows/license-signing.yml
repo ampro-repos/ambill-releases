@@ -132,9 +132,12 @@ jobs:
           "license_string=$licenseString" >> $env:GITHUB_OUTPUT
 
       # Best-effort: a hiccup here (e.g. a push race with another concurrent approval) must
-      # never block the customer actually getting their new license below.
+      # never block the customer actually getting their new license below — but a silent
+      # failure here means the old machine never actually gets revoked with zero trace
+      # anywhere, so this step reports its own outcome for the follow-up step below to act on.
       - name: Revoke previous machine (if switching computers)
-        if: steps.fields.outputs.previous_uid != ''
+        id: revoke
+        if: steps.fields.outputs.previous_uid != '' && steps.fields.outputs.previous_uid != steps.fields.outputs.machine_uid
         continue-on-error: true
         shell: pwsh
         run: |
@@ -153,8 +156,45 @@ jobs:
           git config user.name "ambill-license-bot"
           git config user.email "actions@github.com"
           git add $listPath
+
+          # A concurrent approval could have pushed in between — one retry after re-pulling
+          # covers that; anything past that surfaces via the follow-up step instead of retrying
+          # forever.
           git commit -m "Revoke UID $prevUid (superseded by a new activation)"
           git push
+          if ($LASTEXITCODE -ne 0) {
+            git pull --rebase
+            git push
+            if ($LASTEXITCODE -ne 0) { throw "Could not push revoked-uids.json after retry" }
+          }
+
+      # Guards against approving a switch where "Previous Machine ID" was accidentally left
+      # as the SAME machine the new license is for — revoking it here would lock out the
+      # customer the moment their app checks, immediately after being approved. Flag it
+      # instead of silently acting on what's almost certainly a copy-paste mistake.
+      - name: Flag same-machine revocation mistake
+        if: steps.fields.outputs.previous_uid != '' && steps.fields.outputs.previous_uid == steps.fields.outputs.machine_uid
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              ...context.repo,
+              issue_number: context.issue.number,
+              body: "⚠️ Previous Machine ID matches the Machine ID being licensed — skipped revocation since that would lock out the customer you just approved. If this was meant to revoke a genuinely different machine, please correct the field and re-approve."
+            });
+
+      # Only fires if the revoke step above actually ran and failed after its retry — makes an
+      # otherwise-silent loss of the revocation visible instead of leaving no trace anywhere.
+      - name: Flag failed revocation
+        if: steps.revoke.outcome == 'failure'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              ...context.repo,
+              issue_number: context.issue.number,
+              body: "⚠️ The new license below was issued, but retiring the previous machine's license failed (couldn't save revoked-uids.json). That old machine has NOT been revoked — please retry the switch manually or add it to revoked-uids.json by hand."
+            });
 
       - name: Post license back on the issue and close it
         uses: actions/github-script@v7

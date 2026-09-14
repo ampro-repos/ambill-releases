@@ -43,8 +43,17 @@ body:
       options:
         - New Activation
         - Renewal
+        - Switched Computer
     validations:
       required: true
+  - type: input
+    id: previous_machine_uid
+    attributes:
+      label: Previous Machine ID (only if switching computers)
+      description: Leave blank unless this replaces an earlier activation on a different computer — filling this in retires that old machine's license once approved.
+      placeholder: XXXX-XXXX-XXXX-XXXX
+    validations:
+      required: false
   - type: dropdown
     id: product
     attributes:

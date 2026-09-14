@@ -12,6 +12,7 @@ on:
 
 permissions:
   issues: write
+  contents: write   # needed to commit revoked-uids.json when a request switches computers
 
 jobs:
   parse:
@@ -97,11 +98,13 @@ jobs:
             const licenseType = field("Requested License Type") || "Paid";
             let expiryDays    = parseInt(field("Requested Expiry \\(days from approval\\)"), 10);
             if (!expiryDays || expiryDays <= 0) expiryDays = 365;
+            const previousUid = field("Previous Machine ID \\(only if switching computers\\)");
 
             core.setOutput('machine_uid', machineUid);
             core.setOutput('product', product);
             core.setOutput('is_trial', licenseType.trim().toLowerCase() === 'trial' ? 'true' : 'false');
             core.setOutput('expiry_days', String(expiryDays));
+            core.setOutput('previous_uid', previousUid);
 
       - name: Sign license
         id: sign
@@ -128,6 +131,31 @@ jobs:
           # GITHUB_OUTPUT, not the log, so the license string itself is never printed anywhere
           "license_string=$licenseString" >> $env:GITHUB_OUTPUT
 
+      # Best-effort: a hiccup here (e.g. a push race with another concurrent approval) must
+      # never block the customer actually getting their new license below.
+      - name: Revoke previous machine (if switching computers)
+        if: steps.fields.outputs.previous_uid != ''
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          $prevUid = "${{ steps.fields.outputs.previous_uid }}"
+          $listPath = "revoked-uids.json"
+          $revokedAt = (Get-Date).ToUniversalTime().ToString("o")
+
+          $list = @()
+          if (Test-Path $listPath) {
+            $raw = Get-Content $listPath -Raw
+            if ($raw.Trim().Length -gt 0) { $list = @(ConvertFrom-Json $raw) }
+          }
+          $list += [PSCustomObject]@{ uid = $prevUid; revokedAt = $revokedAt; reason = "Switched to a new computer" }
+          $list | ConvertTo-Json -Depth 3 | Set-Content $listPath
+
+          git config user.name "ambill-license-bot"
+          git config user.email "actions@github.com"
+          git add $listPath
+          git commit -m "Revoke UID $prevUid (superseded by a new activation)"
+          git push
+
       - name: Post license back on the issue and close it
         uses: actions/github-script@v7
         with:
@@ -137,7 +165,9 @@ jobs:
             const expiryDays = `${{ steps.fields.outputs.expiry_days }}`;
             const isTrial = `${{ steps.fields.outputs.is_trial }}` === 'true';
 
-            const summary = `Product: **${product}** · Type: **${isTrial ? 'Trial' : 'Paid'}** · Expires in **${expiryDays} days** from today.`;
+            const previousUid = `${{ steps.fields.outputs.previous_uid }}`;
+            let summary = `Product: **${product}** · Type: **${isTrial ? 'Trial' : 'Paid'}** · Expires in **${expiryDays} days** from today.`;
+            if (previousUid) summary += `\n\nPrevious machine (\`${previousUid}\`) has been retired and will invalidate next time it's online.`;
 
             await github.rest.issues.createComment({
               ...context.repo,

@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>ambill — License Request Admin</title>
+<style>
+  :root {
+    --teal: #008296;
+    --teal-dark: #006478;
+    --gold: #fad274;
+    --bg: #eaf0f6;
+    --card: #ffffff;
+    --border: #c1d6e9;
+    --text: #222;
+    --muted: #666;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Segoe UI", Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    margin: 0;
+    padding: 24px;
+  }
+  h1 { font-size: 20px; color: var(--teal-dark); margin: 0 0 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 20px; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 20px;
+    margin-bottom: 18px;
+    max-width: 720px;
+  }
+  .row { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
+  label { font-weight: 600; font-size: 13px; display: block; margin-bottom: 4px; color: #333; }
+  input[type=text], input[type=number], input[type=password], select {
+    font-size: 14px;
+    padding: 7px 9px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    width: 100%;
+    background: #fff;
+  }
+  input:read-only { background: #f0f3f6; color: #555; }
+  button {
+    background: var(--gold);
+    color: #1a2e4a;
+    border: none;
+    border-radius: 6px;
+    padding: 9px 16px;
+    font-weight: 700;
+    font-size: 13.5px;
+    cursor: pointer;
+  }
+  button:hover { background: #f5c85a; }
+  button.secondary { background: #eee; color: #333; }
+  button.secondary:hover { background: #ddd; }
+  button:disabled { opacity: .5; cursor: default; }
+  .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; }
+  .field-grid .full { grid-column: 1 / -1; }
+  .issue-list { list-style: none; padding: 0; margin: 0; }
+  .issue-list li {
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    background: #fff;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .issue-list li:hover { border-color: var(--teal); background: #f6fbfd; }
+  .issue-list .company { font-weight: 600; }
+  .issue-list .meta { font-size: 12px; color: var(--muted); }
+  .badge {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 10px;
+    background: #fff3cd;
+    color: #7a5c00;
+  }
+  .toast {
+    position: fixed; top: 20px; right: 20px;
+    padding: 12px 18px; border-radius: 8px; color: #fff;
+    font-size: 14px; z-index: 999; display: none;
+  }
+  .toast.ok { background: #2e9e5b; }
+  .toast.err { background: #c0392b; }
+  .hint { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .readonly-block { background: #f6f8fa; border-radius: 8px; padding: 12px 14px; margin-bottom: 14px; font-size: 13.5px; }
+  .readonly-block div { margin-bottom: 4px; }
+  .readonly-block b { color: #444; }
+  a.gh-link { color: var(--teal); font-weight: 600; }
+  #tokenSetup { max-width: 520px; }
+  #tokenSetup input { margin-bottom: 8px; }
+  #tokenSetup ol { font-size: 13px; color: var(--muted); padding-left: 18px; }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<h1>ambill — License Request Admin</h1>
+<div class="sub">Edit request details (Trial/Paid, Expiry, Payment) before approving in the Actions tab.</div>
+
+<div id="toast" class="toast"></div>
+
+<div id="tokenSetup" class="card">
+  <label>Your GitHub Personal Access Token</label>
+  <input type="password" id="tokenInput" placeholder="github_pat_...">
+  <button id="saveTokenBtn">Save Token</button>
+  <div class="hint">
+    Stored only in this browser (localStorage) — never sent anywhere except api.github.com.
+  </div>
+  <ol>
+    <li>GitHub → your profile photo → <b>Settings</b> → <b>Developer settings</b> → <b>Personal access tokens</b> → <b>Fine-grained tokens</b> → <b>Generate new token</b></li>
+    <li>Resource owner: <b>ampro-repos</b>. Repository access: <b>Only select repositories</b> → <b>ambill-releases</b></li>
+    <li>Permissions → Repository permissions → <b>Issues</b> → <b>Read and write</b></li>
+    <li>Generate, copy the token, paste it above.</li>
+  </ol>
+</div>
+
+<div id="app" class="hidden">
+  <div class="row">
+    <button id="refreshBtn" class="secondary">↻ Refresh list</button>
+    <button id="changeTokenBtn" class="secondary">Change token</button>
+    <a class="gh-link" href="https://github.com/ampro-repos/ambill-releases/actions" target="_blank">Open Actions tab →</a>
+  </div>
+
+  <div id="listCard" class="card">
+    <label>Open License Requests</label>
+    <ul id="issueList" class="issue-list"></ul>
+    <div id="listEmpty" class="hint hidden">No open requests right now.</div>
+  </div>
+
+  <div id="formCard" class="card hidden">
+    <div class="row" style="justify-content: space-between;">
+      <label style="margin:0;" id="formTitle">Request #</label>
+      <button id="backBtn" class="secondary">← Back to list</button>
+    </div>
+
+    <div id="readonlyBlock" class="readonly-block"></div>
+
+    <div class="field-grid">
+      <div>
+        <label>Request Type</label>
+        <select id="fRequestType">
+          <option>New Activation</option>
+          <option>Renewal</option>
+          <option>Switched Computer</option>
+        </select>
+      </div>
+      <div>
+        <label>Previous Machine ID (only if switching)</label>
+        <input type="text" id="fPreviousUid" placeholder="XXXX-XXXX-XXXX-XXXX">
+      </div>
+
+      <div>
+        <label>Product</label>
+        <select id="fProduct">
+          <option value="ambill">ambill</option>
+          <option value="amfreezer">amfreezer</option>
+        </select>
+      </div>
+      <div>
+        <label>License Type</label>
+        <select id="fLicenseType">
+          <option>Paid</option>
+          <option>Trial</option>
+        </select>
+      </div>
+
+      <div>
+        <label>Expiry (days from approval)</label>
+        <input type="number" id="fExpiry" value="365" min="1">
+      </div>
+      <div>
+        <label>Payment Required</label>
+        <select id="fPaymentRequired">
+          <option>No</option>
+          <option>Yes</option>
+        </select>
+      </div>
+
+      <div id="paymentFields" class="full field-grid hidden" style="grid-template-columns: 1fr 1fr;">
+        <div>
+          <label>Payment Amount (INR)</label>
+          <input type="number" id="fPaymentAmount" min="1" placeholder="5000">
+        </div>
+        <div>
+          <label>Payment Provider</label>
+          <select id="fPaymentProvider">
+            <option value="UPI QR">UPI QR</option>
+            <option value="Razorpay">Razorpay</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="row" style="margin-top: 16px;">
+      <button id="saveBtn">Save to GitHub</button>
+      <span id="saveHint" class="hint"></span>
+    </div>
+  </div>
+</div>
+
+<script>
+const OWNER = "ampro-repos";
+const REPO = "ambill-releases";
+const API = `https://api.github.com/repos/${OWNER}/${REPO}`;
+const TOKEN_KEY = "ambill_admin_pat";
+
+function escapeRegex(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+function getField(body, label) {
+  const re = new RegExp("### " + escapeRegex(label) + "\\s*\\n\\s*\\n([^\\n]*)");
+  const m = body.match(re);
+  return m ? m[1].trim() : "";
+}
+function setField(body, label, value) {
+  const re = new RegExp("(### " + escapeRegex(label) + "\\s*\\n\\s*\\n)([^\\n]*)");
+  if (re.test(body)) return body.replace(re, (_, prefix) => prefix + value);
+  return body.replace(/\s*$/, "") + "\n\n### " + label + "\n\n" + value + "\n";
+}
+
+function toast(msg, ok) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.className = "toast " + (ok ? "ok" : "err");
+  t.style.display = "block";
+  setTimeout(() => { t.style.display = "none"; }, 3500);
+}
+
+function getToken() { return localStorage.getItem(TOKEN_KEY) || ""; }
+
+async function gh(path, opts) {
+  const res = await fetch(API + path, {
+    ...opts,
+    headers: {
+      "Authorization": "token " + getToken(),
+      "Accept": "application/vnd.github+json",
+      "Content-Type": "application/json",
+      ...(opts && opts.headers)
+    }
+  });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`GitHub API ${res.status}: ${body}`);
+  }
+  return res.status === 204 ? null : res.json();
+}
+
+// ── Token setup ──────────────────────────────────────────────────────────
+function showApp() {
+  document.getElementById("tokenSetup").classList.add("hidden");
+  document.getElementById("app").classList.remove("hidden");
+  loadIssueList();
+}
+function showTokenSetup() {
+  document.getElementById("tokenSetup").classList.remove("hidden");
+  document.getElementById("app").classList.add("hidden");
+}
+document.getElementById("saveTokenBtn").onclick = () => {
+  const v = document.getElementById("tokenInput").value.trim();
+  if (!v) return;
+  localStorage.setItem(TOKEN_KEY, v);
+  showApp();
+};
+document.getElementById("changeTokenBtn").onclick = () => {
+  localStorage.removeItem(TOKEN_KEY);
+  document.getElementById("tokenInput").value = "";
+  showTokenSetup();
+};
+
+// ── Issue list ───────────────────────────────────────────────────────────
+async function loadIssueList() {
+  const list = document.getElementById("issueList");
+  const empty = document.getElementById("listEmpty");
+  list.innerHTML = "";
+  document.getElementById("formCard").classList.add("hidden");
+  try {
+    const issues = await gh(`/issues?labels=license-request&state=open&per_page=50`);
+    if (!issues.length) { empty.classList.remove("hidden"); return; }
+    empty.classList.add("hidden");
+    for (const issue of issues) {
+      const body = issue.body || "";
+      const company = getField(body, "Company Name") || "(no company name)";
+      const uid = getField(body, "Machine ID") || "?";
+      const li = document.createElement("li");
+      li.innerHTML = `<div>
+          <div class="company">${escapeHtml(company)}</div>
+          <div class="meta">#${issue.number} · UID ${escapeHtml(uid)} · opened ${new Date(issue.created_at).toLocaleDateString()}</div>
+        </div>
+        <span class="badge">OPEN</span>`;
+      li.onclick = () => openIssue(issue.number, body);
+      list.appendChild(li);
+    }
+  } catch (e) {
+    toast("Could not load requests: " + e.message, false);
+  }
+}
+function escapeHtml(s) {
+  return (s || "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+// ── Form ─────────────────────────────────────────────────────────────────
+let currentIssueNumber = null;
+let currentBody = null;
+
+function openIssue(number, body) {
+  currentIssueNumber = number;
+  currentBody = body;
+
+  document.getElementById("formTitle").textContent = `Request #${number}`;
+  document.getElementById("readonlyBlock").innerHTML = `
+    <div><b>Company:</b> ${escapeHtml(getField(body, "Company Name"))}</div>
+    <div><b>Contact:</b> ${escapeHtml(getField(body, "Contact Person"))} — ${escapeHtml(getField(body, "Contact Phone"))}</div>
+    <div><b>Machine ID:</b> ${escapeHtml(getField(body, "Machine ID"))}</div>`;
+
+  setSelectValue("fRequestType", getField(body, "Request Type") || "New Activation");
+  document.getElementById("fPreviousUid").value = getField(body, "Previous Machine ID (only if switching computers)");
+  setSelectValue("fProduct", getField(body, "Product") || "ambill");
+  setSelectValue("fLicenseType", getField(body, "Requested License Type") || "Paid");
+  document.getElementById("fExpiry").value = getField(body, "Requested Expiry (days from approval)") || "365";
+  setSelectValue("fPaymentRequired", getField(body, "Payment Required") || "No");
+  document.getElementById("fPaymentAmount").value = getField(body, "Payment Amount (INR)");
+  setSelectValue("fPaymentProvider", getField(body, "Payment Provider") || "UPI QR");
+
+  togglePaymentFields();
+  document.getElementById("saveHint").textContent = "";
+  document.getElementById("listCard").classList.add("hidden");
+  document.getElementById("formCard").classList.remove("hidden");
+}
+function setSelectValue(id, value) {
+  const el = document.getElementById(id);
+  if (!value) return;
+  for (const opt of el.options) if (opt.value === value || opt.text === value) { el.value = opt.value; return; }
+}
+function togglePaymentFields() {
+  const req = document.getElementById("fPaymentRequired").value === "Yes";
+  document.getElementById("paymentFields").classList.toggle("hidden", !req);
+}
+document.getElementById("fPaymentRequired").onchange = togglePaymentFields;
+document.getElementById("backBtn").onclick = () => {
+  document.getElementById("formCard").classList.add("hidden");
+  document.getElementById("listCard").classList.remove("hidden");
+};
+document.getElementById("refreshBtn").onclick = loadIssueList;
+
+document.getElementById("saveBtn").onclick = async () => {
+  const btn = document.getElementById("saveBtn");
+  btn.disabled = true;
+  document.getElementById("saveHint").textContent = "Saving...";
+  try {
+    let body = currentBody;
+    body = setField(body, "Request Type", document.getElementById("fRequestType").value);
+    body = setField(body, "Previous Machine ID (only if switching computers)", document.getElementById("fPreviousUid").value.trim());
+    body = setField(body, "Product", document.getElementById("fProduct").value);
+    body = setField(body, "Requested License Type", document.getElementById("fLicenseType").value);
+    body = setField(body, "Requested Expiry (days from approval)", document.getElementById("fExpiry").value.trim() || "365");
+    body = setField(body, "Payment Required", document.getElementById("fPaymentRequired").value);
+    body = setField(body, "Payment Amount (INR)", document.getElementById("fPaymentAmount").value.trim());
+    body = setField(body, "Payment Provider", document.getElementById("fPaymentProvider").value);
+
+    await gh(`/issues/${currentIssueNumber}`, { method: "PATCH", body: JSON.stringify({ body }) });
+    currentBody = body;
+    toast(`Saved request #${currentIssueNumber}. Now approve it in the Actions tab.`, true);
+    document.getElementById("saveHint").textContent = "Saved ✓ — go approve the deployment in the Actions tab.";
+  } catch (e) {
+    toast("Save failed: " + e.message, false);
+    document.getElementById("saveHint").textContent = "";
+  } finally {
+    btn.disabled = false;
+  }
+};
+
+// ── Init ─────────────────────────────────────────────────────────────────
+if (getToken()) showApp(); else showTokenSetup();
+</script>
+
+</body>
+</html>

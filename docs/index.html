@@ -54,16 +54,8 @@
   }
   .brand { display: flex; align-items: center; gap: 10px; }
   /* The real applogo.png (Images/amprologo.png) used in every form's header panel across
-     the WinForms app (Login_New, Ambill_LaunchPage, ActivateLicense, ...), paired with the
-     same hand-drawn two-tone wordmark technique those forms use next to it ("am" gold +
-     "bill" cream via GDI+, Georgia Bold) — reproduced here in CSS since it's just text. */
-  .app-logo { width: 32px; height: 32px; object-fit: contain; }
-  .wordmark {
-    font-family: Georgia, "Times New Roman", serif;
-    font-weight: 700; font-size: 25px; line-height: 1; white-space: nowrap;
-  }
-  .wordmark .am { color: var(--gold); }
-  .wordmark .bill { color: #e7f0f1; }
+     the WinForms app (Login_New, Ambill_LaunchPage, ActivateLicense, ...). */
+  .app-logo { width: 38px; height: 38px; object-fit: contain; }
   .brand-divider { width: 1px; height: 26px; background: rgba(255,255,255,.22); }
   .brand h1 { font-size: 15px; font-weight: 700; margin: 0; letter-spacing: .01em; color: #cfe3ea; }
   .brand .tagline { font-size: 12px; color: #a9c3d4; margin-top: 1px; }
@@ -314,7 +306,6 @@
 <div class="topbar">
   <div class="brand">
     <img src="assets/amprologo.png" alt="ambill" class="app-logo">
-    <div class="wordmark"><span class="am">am</span><span class="bill">bill</span></div>
     <div class="brand-divider"></div>
     <div>
       <h1>License Admin</h1>

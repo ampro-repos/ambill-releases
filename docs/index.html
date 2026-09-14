@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ambill — License Request Admin</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230f2a3d'/%3E%3Ctext x='16' y='23' font-family='Georgia,serif' font-weight='700' font-size='17' text-anchor='middle' fill='%23f4b73f'%3Ea%3C/text%3E%3C/svg%3E">
+<link rel="icon" type="image/png" href="assets/amprologo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -53,9 +53,11 @@
     box-shadow: 0 2px 10px rgba(0,0,0,.15);
   }
   .brand { display: flex; align-items: center; gap: 10px; }
-  /* Same two-tone wordmark technique the WinForms app itself uses (Ambill_LaunchPage.cs /
-     Login_New.cs — hand-drawn "am" in gold + "bill" in cream via GDI+, Georgia Bold).
-     No logo image asset exists anywhere in the app; this is the actual brand mark. */
+  /* The real applogo.png (Images/amprologo.png) used in every form's header panel across
+     the WinForms app (Login_New, Ambill_LaunchPage, ActivateLicense, ...), paired with the
+     same hand-drawn two-tone wordmark technique those forms use next to it ("am" gold +
+     "bill" cream via GDI+, Georgia Bold) — reproduced here in CSS since it's just text. */
+  .app-logo { width: 32px; height: 32px; object-fit: contain; }
   .wordmark {
     font-family: Georgia, "Times New Roman", serif;
     font-weight: 700; font-size: 25px; line-height: 1; white-space: nowrap;
@@ -311,6 +313,7 @@
 
 <div class="topbar">
   <div class="brand">
+    <img src="assets/amprologo.png" alt="ambill" class="app-logo">
     <div class="wordmark"><span class="am">am</span><span class="bill">bill</span></div>
     <div class="brand-divider"></div>
     <div>

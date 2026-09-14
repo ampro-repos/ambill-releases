@@ -879,6 +879,7 @@ function openIssue(entry) {
   const run = findRunForIssue(issue.created_at);
   const approveBtn = document.getElementById("approveBtn");
   const approvalHint = document.getElementById("approvalHint");
+  approveBtn.textContent = "✓ Approve & Sign Now";   // reset from "Signing in progress..." etc.
   if (issue.state === "open" && run) {
     approveBtn.disabled = false;
     approvalHint.classList.remove("hidden");
@@ -946,6 +947,7 @@ document.getElementById("saveBtn").onclick = async () => {
 document.getElementById("approveBtn").onclick = async () => {
   const run = findRunForIssue(currentEntry.issue.created_at);
   if (!run) return;
+  const issueNumber = currentEntry.issue.number;
   const ok = await customConfirm(
     `Approve workflow run #${run.run_number} and sign this license now?`,
     { title: "Approve & Sign", confirmText: "Approve & Sign", kind: "info" }
@@ -961,7 +963,17 @@ document.getElementById("approveBtn").onclick = async () => {
       method: "POST",
       body: JSON.stringify({ environment_ids: envIds, state: "approved", comment: "Approved via ambill admin page" })
     });
-    toast(`Approved — signing in progress. Refresh in a few seconds.`, true);
+    // This run is no longer actually waiting — stop findRunForIssue matching it until the
+    // next full list reload, otherwise the detail panel would keep claiming it's still
+    // awaiting approval even though it just got approved.
+    waitingRuns = waitingRuns.filter(r => r.id !== run.id);
+    btn.textContent = "⏳ Signing in progress...";
+    toast("Approved — waiting for the signing job to finish.", true);
+    await pollForApprovalResult(issueNumber);
+    // Leave the button disabled/relabeled on success — re-approving an already-approved
+    // run makes no sense, and openIssue() (called by pollForApprovalResult once something
+    // changes) will overwrite this label/state correctly for whatever comes next anyway.
+    return;
   } catch (e) {
     if (e.message.includes("403") || e.message.includes("not accessible")) {
       approvalHintFallback(run);
@@ -969,10 +981,55 @@ document.getElementById("approveBtn").onclick = async () => {
     } else {
       toast("Approve failed: " + e.message, false);
     }
-  } finally {
     btn.disabled = false;
   }
 };
+
+async function fetchIssueEntry(number) {
+  const issue = await gh(`/issues/${number}`);
+  let comments = [];
+  try { comments = await gh(`/issues/${number}/comments?per_page=30`); } catch (e) {}
+  return { issue, comments, license: extractLicenseFromComments(comments) };
+}
+
+// After approving, the signing job still has to actually run (checkout, read fields, sign
+// or generate a payment link, post back to the issue) — typically ~15-30s, not instant. Polls
+// the single issue directly (cheap — 2 calls per attempt) rather than re-fetching everything,
+// and only re-renders once something has actually changed, so the admin isn't left staring at
+// a page that looks like nothing happened after a successful approval.
+async function pollForApprovalResult(issueNumber) {
+  const approvalHint = document.getElementById("approvalHint");
+  const originalBody = currentEntry.issue.body || "";
+  const maxAttempts = 12;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    if (approvalHint) {
+      approvalHint.classList.remove("hidden");
+      approvalHint.textContent = `Waiting for the signing job to finish — checking again shortly (${attempt}/${maxAttempts})...`;
+    }
+    await new Promise(r => setTimeout(r, 4000));
+    let fresh;
+    try { fresh = await fetchIssueEntry(issueNumber); } catch (e) { continue; }
+
+    const idx = allIssues.findIndex(e => e.issue.number === issueNumber);
+    if (idx >= 0) allIssues[idx] = fresh;
+
+    const changed = fresh.issue.state !== "open" || (fresh.issue.body || "") !== originalBody;
+    if (changed) {
+      const stillSelected = currentEntry && currentEntry.issue.number === issueNumber;
+      if (stillSelected) openIssue(fresh);
+      else renderIssueList();
+      toast(fresh.issue.state !== "open" ? "License signed and the request was closed." : "Payment link is ready.", true);
+      return;
+    }
+    renderIssueList();
+  }
+  if (approvalHint) {
+    approvalHint.classList.remove("hidden");
+    approvalHint.innerHTML = `Still nothing after a minute of checking — the job may be slower than usual, or something went wrong. <a class="gh-link" href="https://github.com/ampro-repos/ambill-releases/actions" target="_blank">Check the Actions tab →</a>, or click Refresh above.`;
+  }
+  document.getElementById("approveBtn").disabled = false;
+  document.getElementById("approveBtn").textContent = "✓ Approve & Sign Now";
+}
 
 // Shown on a 403 approving a deployment. Two independent causes, both worth
 // checking (per GitHub's own docs for this endpoint): the token is missing

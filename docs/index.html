@@ -151,6 +151,19 @@
   .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 16px; }
   .field-grid .full { grid-column: 1 / -1; }
 
+  /* ── Searchable dropdown (Previous Machine ID) ── */
+  .autocomplete-list {
+    position: absolute; z-index: 50; left: 0; right: 0; top: 100%; margin-top: 4px;
+    background: #fff; border: 1px solid var(--border); border-radius: 8px;
+    box-shadow: var(--shadow-lg); max-height: 230px; overflow-y: auto;
+  }
+  .autocomplete-list .ac-item { padding: 9px 12px; cursor: pointer; border-bottom: 1px solid #f1f3f5; }
+  .autocomplete-list .ac-item:last-child { border-bottom: none; }
+  .autocomplete-list .ac-item:hover { background: var(--teal-light); }
+  .autocomplete-list .ac-company { font-weight: 600; font-size: 13px; }
+  .autocomplete-list .ac-uid { font-size: 11px; color: var(--muted); font-family: "JetBrains Mono", monospace; margin-top: 1px; }
+  .autocomplete-list .ac-empty { padding: 10px 12px; color: var(--muted); font-size: 12.5px; }
+
   /* ── Issue list ── */
   .issue-list { list-style: none; padding: 0; margin: 12px 0 0; display: flex; flex-direction: column; gap: 8px; max-height: 62vh; overflow-y: auto; }
   .issue-item {
@@ -404,9 +417,11 @@
                 <option>Switched Computer</option>
               </select>
             </div>
-            <div>
+            <div style="position:relative;">
               <label>Previous Machine ID (only if switching)</label>
-              <input type="text" id="fPreviousUid" placeholder="XXXX-XXXX-XXXX-XXXX">
+              <input type="text" id="fPreviousUid" placeholder="Search company or paste UID..." autocomplete="off">
+              <div id="prevUidSuggestions" class="autocomplete-list hidden"></div>
+              <div id="prevUidFromHint" class="hint hidden"></div>
             </div>
 
             <div>
@@ -425,8 +440,9 @@
             </div>
 
             <div>
-              <label>Expiry (days from approval)</label>
-              <input type="number" id="fExpiry" value="365" min="1">
+              <label>Expiry Date</label>
+              <input type="date" id="fExpiryDate">
+              <div id="fExpiryDaysLabel" class="hint"></div>
             </div>
             <div>
               <label>Payment Required</label>
@@ -522,6 +538,86 @@ function extractLicenseFromComments(comments) {
 function escapeHtml(s) {
   return (s || "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
+
+// ── Expiry: stored/signed as a day-count ("Requested Expiry (days from
+// approval)" — the CLI computes today+days at SIGN time, not edit time), but
+// shown/edited as a calendar date for a nicer UI. Converts both ways off
+// "today" at midnight, since that's the best available proxy for "the day
+// this gets approved" while editing. ──────────────────────────────────────
+function daysBetweenTodayAnd(dateStr) {
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const target = new Date(dateStr + "T00:00:00");
+  return Math.round((target - today) / 86400000);
+}
+function dateFromTodayPlusDays(days) {
+  const d = new Date(); d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() + (parseInt(days, 10) || 365));
+  return d.toISOString().slice(0, 10);
+}
+function updateExpiryDaysLabel() {
+  const dateStr = document.getElementById("fExpiryDate").value;
+  const lbl = document.getElementById("fExpiryDaysLabel");
+  if (!dateStr) { lbl.textContent = ""; return; }
+  const days = daysBetweenTodayAnd(dateStr);
+  lbl.textContent = days >= 0 ? `≈ ${days} day${days === 1 ? "" : "s"} from today` : "⚠ this date is in the past";
+}
+document.getElementById("fExpiryDate").onchange = updateExpiryDaysLabel;
+
+// ── Previous Machine ID: searchable dropdown over every other request's
+// Company Name, auto-filling the actual Machine ID on selection instead of
+// requiring the admin to go find and copy-paste it by hand. Still a free-text
+// input underneath — older/off-system UIDs can still be typed directly. ──
+function getAutocompleteSource() {
+  const excludeNumber = currentEntry ? currentEntry.issue.number : null;
+  return allIssues
+    .filter(e => e.issue.number !== excludeNumber)
+    .map(e => ({
+      company: getField(e.issue.body || "", "Company Name") || "(no company name)",
+      uid: getField(e.issue.body || "", "Machine ID") || "",
+      number: e.issue.number
+    }))
+    .filter(x => x.uid);
+}
+function renderPrevUidSuggestions(filterText) {
+  const list = document.getElementById("prevUidSuggestions");
+  const q = (filterText || "").toLowerCase().trim();
+  const matches = getAutocompleteSource()
+    .filter(x => !q || x.company.toLowerCase().includes(q) || x.uid.toLowerCase().includes(q))
+    .slice(0, 8);
+  list.innerHTML = matches.length
+    ? matches.map(x => `
+        <div class="ac-item" data-uid="${escapeHtml(x.uid)}" data-company="${escapeHtml(x.company)}">
+          <div class="ac-company">${escapeHtml(x.company)}</div>
+          <div class="ac-uid">${escapeHtml(x.uid)} · #${x.number}</div>
+        </div>`).join("")
+    : `<div class="ac-empty">No matching requests — you can still paste a UID directly.</div>`;
+  list.querySelectorAll(".ac-item").forEach(el => {
+    el.onmousedown = (e) => {
+      e.preventDefault();   // beat the input's blur handler
+      document.getElementById("fPreviousUid").value = el.dataset.uid;
+      showPrevUidFromHint(el.dataset.company);
+      list.classList.add("hidden");
+    };
+  });
+  list.classList.remove("hidden");
+}
+function showPrevUidFromHint(company) {
+  const hint = document.getElementById("prevUidFromHint");
+  if (company) { hint.textContent = `↳ from: ${company}`; hint.classList.remove("hidden"); }
+  else hint.classList.add("hidden");
+}
+document.getElementById("fPreviousUid").addEventListener("input", (e) => {
+  showPrevUidFromHint(null);
+  renderPrevUidSuggestions(e.target.value);
+});
+document.getElementById("fPreviousUid").addEventListener("focus", (e) => renderPrevUidSuggestions(e.target.value));
+document.getElementById("fPreviousUid").addEventListener("blur", () => {
+  setTimeout(() => document.getElementById("prevUidSuggestions").classList.add("hidden"), 120);
+});
+document.getElementById("fPreviousUid").addEventListener("keydown", (e) => {
+  if (e.key === "Escape") document.getElementById("prevUidSuggestions").classList.add("hidden");
+});
+
 function toast(msg, ok) {
   const t = document.getElementById("toast");
   t.textContent = msg;
@@ -757,10 +853,14 @@ function openIssue(entry) {
   }
 
   setSelectValue("fRequestType", getField(body, "Request Type") || "New Activation");
-  document.getElementById("fPreviousUid").value = getField(body, "Previous Machine ID (only if switching computers)");
+  const prevUid = getField(body, "Previous Machine ID (only if switching computers)");
+  document.getElementById("fPreviousUid").value = prevUid;
+  const prevMatch = getAutocompleteSource().find(x => x.uid === prevUid);
+  showPrevUidFromHint(prevMatch ? prevMatch.company : null);
   setSelectValue("fProduct", getField(body, "Product") || "ambill");
   setSelectValue("fLicenseType", getField(body, "Requested License Type") || "Paid");
-  document.getElementById("fExpiry").value = getField(body, "Requested Expiry (days from approval)") || "365";
+  document.getElementById("fExpiryDate").value = dateFromTodayPlusDays(getField(body, "Requested Expiry (days from approval)") || "365");
+  updateExpiryDaysLabel();
   setSelectValue("fPaymentRequired", getField(body, "Payment Required") || "No");
   document.getElementById("fPaymentAmount").value = getField(body, "Payment Amount (INR)");
   setSelectValue("fPaymentProvider", getField(body, "Payment Provider") || "UPI QR");
@@ -815,7 +915,9 @@ document.getElementById("saveBtn").onclick = async () => {
     body = setField(body, "Previous Machine ID (only if switching computers)", document.getElementById("fPreviousUid").value.trim());
     body = setField(body, "Product", document.getElementById("fProduct").value);
     body = setField(body, "Requested License Type", document.getElementById("fLicenseType").value);
-    body = setField(body, "Requested Expiry (days from approval)", document.getElementById("fExpiry").value.trim() || "365");
+    const expiryDateStr = document.getElementById("fExpiryDate").value;
+    const expiryDays = expiryDateStr ? Math.max(1, daysBetweenTodayAnd(expiryDateStr)) : 365;
+    body = setField(body, "Requested Expiry (days from approval)", String(expiryDays));
     body = setField(body, "Payment Required", document.getElementById("fPaymentRequired").value);
     body = setField(body, "Payment Amount (INR)", document.getElementById("fPaymentAmount").value.trim());
     body = setField(body, "Payment Provider", document.getElementById("fPaymentProvider").value);

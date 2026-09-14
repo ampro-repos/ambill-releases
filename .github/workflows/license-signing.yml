@@ -54,6 +54,39 @@ jobs:
               title: `License Request — ${companyName} (UID: ${machineUid})`
             });
 
+            // The ambill app posts a raw issue body via the API (Company Name / Contact
+            // Person / Contact Phone / Machine ID / Request Type only) — it never goes
+            // through the Issue Form template, so Product/License Type/Expiry/Payment
+            // fields never exist in the body at all, leaving Ambill Support nothing to
+            // edit before approving. Append them here (with defaults) whenever missing,
+            // so every request — app-submitted or manually created via the web form —
+            // ends up with the same editable set of fields.
+            function escapeRegex(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+            function hasField(label) {
+              return new RegExp("### " + escapeRegex(label) + "\\s*\\n\\s*\\n").test(body);
+            }
+
+            const adminDefaults = [
+              ["Previous Machine ID (only if switching computers)", ""],
+              ["Product", "ambill"],
+              ["Requested License Type", "Paid"],
+              ["Requested Expiry (days from approval)", "365"],
+              ["Payment Required", "No"],
+              ["Payment Amount (INR)", ""],
+              ["Payment Provider", "UPI QR"],
+            ];
+            let appended = "";
+            for (const [label, def] of adminDefaults) {
+              if (!hasField(label)) appended += `\n\n### ${label}\n\n${def}`;
+            }
+            if (appended) {
+              await github.rest.issues.update({
+                ...context.repo,
+                issue_number: context.issue.number,
+                body: body + appended + "\n"
+              });
+            }
+
             core.setOutput('company_name', companyName);
             core.setOutput('machine_uid', machineUid);
 
@@ -64,7 +97,12 @@ jobs:
             await github.rest.issues.createComment({
               ...context.repo,
               issue_number: context.issue.number,
-              body: "Request received. **Please call Ambill Support now so they can review and approve it.** This issue will get a comment with the license once it's approved."
+              body: "Request received. **Please call Ambill Support now so they can review and approve it.**\n\n" +
+                "**Before approving:** click the ✏️ (edit) icon at the top of this issue to change Product, " +
+                "Requested License Type (Paid/Trial), Requested Expiry, Payment Required/Amount/Provider, or " +
+                "Previous Machine ID (only if switching computers) — whatever is in the issue body at the " +
+                "moment you approve the deployment below is what actually gets signed.\n\n" +
+                "This issue will get a comment with the license once it's approved."
             });
 
   sign:

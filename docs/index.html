@@ -2,263 +2,450 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ambill — License Request Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root {
-    --teal: #008296;
-    --teal-dark: #006478;
-    --gold: #fad274;
-    --bg: #eaf0f6;
-    --card: #ffffff;
-    --border: #c1d6e9;
-    --text: #222;
-    --muted: #666;
+    --navy: #0f2a3d;
+    --navy-2: #16405c;
+    --teal: #0c8fa3;
+    --teal-light: #e6f6f9;
+    --gold: #f4b73f;
+    --gold-dark: #d99b1f;
+    --bg: #f3f6f9;
+    --panel: #ffffff;
+    --border: #e2e8f0;
+    --text: #1a2632;
+    --muted: #64748b;
+    --danger: #e0483e;
+    --danger-bg: #fdeceb;
+    --success: #1a9e5c;
+    --success-bg: #e8f8ef;
+    --radius: 12px;
+    --shadow: 0 1px 2px rgba(16,42,61,.06), 0 4px 16px rgba(16,42,61,.06);
+    --shadow-lg: 0 8px 30px rgba(16,42,61,.12);
   }
   * { box-sizing: border-box; }
+  html, body { height: 100%; }
   body {
-    font-family: "Segoe UI", Arial, sans-serif;
+    font-family: "Inter", "Segoe UI", Arial, sans-serif;
     background: var(--bg);
     color: var(--text);
     margin: 0;
-    padding: 24px;
+    -webkit-font-smoothing: antialiased;
   }
-  h1 { font-size: 20px; color: var(--teal-dark); margin: 0 0 4px; }
-  .sub { color: var(--muted); font-size: 13px; margin-bottom: 20px; }
-  .card {
-    background: var(--card);
+  ::selection { background: #bfe8ef; }
+
+  /* ── Top bar ── */
+  .topbar {
+    background: linear-gradient(135deg, var(--navy) 0%, var(--navy-2) 100%);
+    color: #fff;
+    padding: 16px 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    box-shadow: 0 2px 10px rgba(0,0,0,.15);
+  }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .brand .logo {
+    width: 34px; height: 34px; border-radius: 9px;
+    background: linear-gradient(135deg, var(--gold), var(--gold-dark));
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; color: var(--navy); font-size: 15px;
+  }
+  .brand h1 { font-size: 16px; font-weight: 700; margin: 0; letter-spacing: .01em; }
+  .brand .tagline { font-size: 12px; color: #a9c3d4; margin-top: 1px; }
+  .topbar-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+  /* ── Buttons ── */
+  button {
+    font-family: inherit;
+    border: none;
+    border-radius: 8px;
+    padding: 9px 15px;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+    transition: transform .08s ease, box-shadow .15s ease, background .15s ease, opacity .15s ease;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  button:active:not(:disabled) { transform: translateY(1px); }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  .btn-primary { background: linear-gradient(135deg, var(--gold), var(--gold-dark)); color: var(--navy); box-shadow: 0 2px 8px rgba(244,183,63,.4); }
+  .btn-primary:hover:not(:disabled) { box-shadow: 0 4px 14px rgba(244,183,63,.55); }
+  .btn-teal { background: var(--teal); color: #fff; box-shadow: 0 2px 8px rgba(12,143,163,.35); }
+  .btn-teal:hover:not(:disabled) { background: #0b7f91; }
+  .btn-ghost-dark { background: rgba(255,255,255,.1); color: #fff; border: 1px solid rgba(255,255,255,.22); }
+  .btn-ghost-dark:hover:not(:disabled) { background: rgba(255,255,255,.18); }
+  .btn-secondary { background: #eef1f5; color: #334155; }
+  .btn-secondary:hover:not(:disabled) { background: #e3e8ee; }
+  .btn-danger { background: var(--danger-bg); color: var(--danger); border: 1px solid #f6cac6; }
+  .btn-danger:hover:not(:disabled) { background: #fbdcd9; }
+  .btn-link { background: none; color: #cfe8ee; padding: 6px 4px; text-decoration: none; font-weight: 600; font-size: 13px; }
+  .btn-link:hover { color: #fff; }
+
+  /* ── Layout ── */
+  .layout {
+    display: grid;
+    grid-template-columns: 380px 1fr;
+    gap: 20px;
+    padding: 24px 28px 40px;
+    max-width: 1360px;
+    margin: 0 auto;
+    align-items: start;
+  }
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+  }
+
+  .panel {
+    background: var(--panel);
     border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 18px 20px;
-    margin-bottom: 18px;
-    max-width: 760px;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
   }
-  .row { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
-  label { font-weight: 600; font-size: 13px; display: block; margin-bottom: 4px; color: #333; }
+  .panel-header {
+    padding: 16px 18px 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  .panel-title { font-size: 13px; font-weight: 700; color: var(--navy); text-transform: uppercase; letter-spacing: .05em; margin: 0 0 10px; }
+  .panel-body { padding: 14px 18px 18px; }
+
+  /* ── Filters ── */
+  .filter-bar { display: flex; flex-direction: column; gap: 8px; }
+  .filter-bar select, .filter-bar input {
+    width: 100%;
+  }
+
+  /* ── Form controls ── */
+  label { font-weight: 600; font-size: 12.5px; display: block; margin-bottom: 5px; color: #475569; }
   input[type=text], input[type=number], input[type=password], select, textarea {
+    font-family: inherit;
     font-size: 14px;
-    padding: 7px 9px;
-    border: 1px solid var(--border);
-    border-radius: 6px;
+    padding: 9px 11px;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
     width: 100%;
     background: #fff;
-    font-family: inherit;
+    color: var(--text);
+    transition: border-color .15s ease, box-shadow .15s ease;
   }
-  input:read-only { background: #f0f3f6; color: #555; }
-  button {
-    background: var(--gold);
-    color: #1a2e4a;
-    border: none;
-    border-radius: 6px;
-    padding: 9px 16px;
-    font-weight: 700;
-    font-size: 13.5px;
-    cursor: pointer;
-    white-space: nowrap;
+  input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: var(--teal);
+    box-shadow: 0 0 0 3px rgba(12,143,163,.15);
   }
-  button:hover { background: #f5c85a; }
-  button.secondary { background: #eee; color: #333; }
-  button.secondary:hover { background: #ddd; }
-  button.danger { background: #e57373; color: #fff; }
-  button.danger:hover { background: #d45c5c; }
-  button.go { background: var(--teal); color: #fff; }
-  button.go:hover { background: var(--teal-dark); }
-  button:disabled { opacity: .5; cursor: default; }
-  .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; }
+  input:read-only { background: #f5f7fa; color: #64748b; }
+  textarea { resize: vertical; }
+
+  .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 16px; }
   .field-grid .full { grid-column: 1 / -1; }
-  .filter-bar { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; align-items: center; }
-  .filter-bar select, .filter-bar input { width: auto; min-width: 140px; }
-  .issue-list { list-style: none; padding: 0; margin: 0; }
-  .issue-list li {
-    padding: 10px 12px;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    margin-bottom: 8px;
+
+  /* ── Issue list ── */
+  .issue-list { list-style: none; padding: 0; margin: 12px 0 0; display: flex; flex-direction: column; gap: 8px; max-height: 62vh; overflow-y: auto; }
+  .issue-item {
+    padding: 12px 13px;
+    border: 1.5px solid var(--border);
+    border-left: 4px solid var(--border);
+    border-radius: 9px;
     cursor: pointer;
     background: #fff;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 10px;
+    transition: border-color .12s ease, background .12s ease, box-shadow .12s ease;
   }
-  .issue-list li:hover { border-color: var(--teal); background: #f6fbfd; }
-  .issue-list .company { font-weight: 600; }
-  .issue-list .meta { font-size: 12px; color: var(--muted); }
+  .issue-item:hover { border-color: var(--teal); box-shadow: 0 2px 10px rgba(12,143,163,.12); }
+  .issue-item.selected { border-color: var(--teal); background: var(--teal-light); box-shadow: 0 2px 10px rgba(12,143,163,.15); }
+  .issue-item .company { font-weight: 700; font-size: 14px; margin-bottom: 3px; }
+  .issue-item .meta { font-size: 11.5px; color: var(--muted); }
+  .issue-item .row-between { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+
   .badge {
-    font-size: 11px;
+    font-size: 10.5px;
     font-weight: 700;
     padding: 3px 9px;
-    border-radius: 10px;
+    border-radius: 20px;
     white-space: nowrap;
+    letter-spacing: .02em;
+    display: inline-flex; align-items: center; gap: 4px;
   }
-  .badge-new       { background: #d6e8ff; color: #1a4a8a; }
-  .badge-payment   { background: #fff3cd; color: #7a5c00; }
-  .badge-signed    { background: #d4f3dd; color: #1c6b34; }
-  .badge-closed    { background: #f0d0d0; color: #8a2020; }
-  .badge-approval  { background: #e6d6ff; color: #5a2ea6; }
+  .badge::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .badge-new       { background: #e0edff; color: #1d5fd6; }
+  .badge-payment   { background: #fff4d6; color: #a3720a; }
+  .badge-signed    { background: var(--success-bg); color: var(--success); }
+  .badge-closed    { background: var(--danger-bg); color: var(--danger); }
+  .badge-approval  { background: #f0e6ff; color: #7439c9; }
+  .issue-item.selected .issue-item-border { border-left-color: var(--teal); }
+
+  /* map status -> left border accent on the list item */
+  .issue-item[data-status="badge-new"]      { border-left-color: #1d5fd6; }
+  .issue-item[data-status="badge-payment"]  { border-left-color: #a3720a; }
+  .issue-item[data-status="badge-signed"]   { border-left-color: var(--success); }
+  .issue-item[data-status="badge-closed"]   { border-left-color: var(--danger); }
+  .issue-item[data-status="badge-approval"] { border-left-color: #7439c9; }
+
+  /* ── Toast ── */
   .toast {
     position: fixed; top: 20px; right: 20px;
-    padding: 12px 18px; border-radius: 8px; color: #fff;
-    font-size: 14px; z-index: 999; display: none; max-width: 420px;
+    padding: 13px 18px; border-radius: 10px; color: #fff;
+    font-size: 13.5px; font-weight: 500; z-index: 999; display: none; max-width: 420px;
+    box-shadow: var(--shadow-lg);
   }
-  .toast.ok { background: #2e9e5b; }
-  .toast.err { background: #c0392b; }
-  .hint { font-size: 12px; color: var(--muted); margin-top: 4px; }
-  .readonly-block { background: #f6f8fa; border-radius: 8px; padding: 12px 14px; margin-bottom: 14px; font-size: 13.5px; }
-  .readonly-block div { margin-bottom: 4px; }
-  .readonly-block b { color: #444; }
+  .toast.ok { background: var(--success); }
+  .toast.err { background: var(--danger); }
+
+  .hint { font-size: 12px; color: var(--muted); margin-top: 4px; line-height: 1.5; }
+  .callout {
+    background: #f8fafc; border: 1px solid var(--border); border-radius: 9px;
+    padding: 11px 13px; font-size: 12.5px; color: #475569; margin-bottom: 14px; line-height: 1.6;
+  }
+  .callout b { color: var(--navy); }
+
+  .readonly-block {
+    background: linear-gradient(180deg, #f8fbfc, #f1f6f8);
+    border: 1px solid var(--border);
+    border-radius: 9px; padding: 13px 15px; margin-bottom: 16px; font-size: 13.5px;
+  }
+  .readonly-block .rline { display: flex; gap: 6px; margin-bottom: 5px; }
+  .readonly-block .rline:last-child { margin-bottom: 0; }
+  .readonly-block b { color: var(--navy); min-width: 78px; display: inline-block; }
+
   a.gh-link { color: var(--teal); font-weight: 600; text-decoration: none; }
   a.gh-link:hover { text-decoration: underline; }
-  #tokenSetup { max-width: 560px; }
-  #tokenSetup input { margin-bottom: 8px; }
-  #tokenSetup ol { font-size: 13px; color: var(--muted); padding-left: 18px; }
+
+  #tokenWrap { display: flex; justify-content: center; padding: 60px 20px; }
+  #tokenSetup { max-width: 560px; width: 100%; }
+  #tokenSetup input { margin-bottom: 10px; }
+  #tokenSetup ol { font-size: 13px; color: var(--muted); padding-left: 20px; line-height: 1.9; }
+  #tokenSetup ol b { color: var(--navy); }
   .hidden { display: none !important; }
-  .section-title { font-size: 13px; font-weight: 700; color: var(--teal-dark); margin: 18px 0 8px; text-transform: uppercase; letter-spacing: .04em; }
-  .license-box { background: #0d1b2a; color: #9ef7c0; font-family: "Consolas", monospace; font-size: 12px; padding: 10px; border-radius: 6px; word-break: break-all; margin-bottom: 8px; max-height: 100px; overflow-y: auto; }
-  .actions-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+
+  .section-title {
+    font-size: 12px; font-weight: 700; color: var(--navy);
+    margin: 22px 0 10px; text-transform: uppercase; letter-spacing: .06em;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .section-title::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+
+  .license-box {
+    background: #0b1e2c; color: #7ef2b0;
+    font-family: "JetBrains Mono", Consolas, monospace; font-size: 11.5px;
+    padding: 12px 14px; border-radius: 8px; word-break: break-all;
+    margin-bottom: 10px; max-height: 110px; overflow-y: auto; line-height: 1.5;
+  }
+  .actions-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+
+  .empty-state {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 70px 30px; text-align: center; color: var(--muted);
+  }
+  .empty-state .icon { font-size: 40px; margin-bottom: 12px; opacity: .5; }
+  .empty-state h3 { color: #334155; font-size: 15px; margin: 0 0 4px; }
+  .empty-state p { font-size: 13px; margin: 0; max-width: 280px; }
+
+  .spinner {
+    width: 22px; height: 22px; border-radius: 50%;
+    border: 3px solid var(--border); border-top-color: var(--teal);
+    animation: spin .7s linear infinite; margin: 30px auto;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .form-title-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .form-title-row h2 { font-size: 17px; margin: 0; color: var(--navy); }
+  .form-title-row .state-pill {
+    font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 20px;
+    text-transform: uppercase; letter-spacing: .04em;
+  }
+  .state-pill.open { background: #e0edff; color: #1d5fd6; }
+  .state-pill.closed { background: #f1f3f5; color: #64748b; }
 </style>
 </head>
 <body>
 
-<h1>ambill — License Request Admin</h1>
-<div class="sub">View any request, edit its details, approve/reject, revoke machines, and more — without touching raw GitHub issue text.</div>
+<div class="topbar">
+  <div class="brand">
+    <div class="logo">AB</div>
+    <div>
+      <h1>ambill License Admin</h1>
+      <div class="tagline">Review, edit, approve &amp; manage license requests</div>
+    </div>
+  </div>
+  <div class="topbar-actions" id="topbarAppActions" style="display:none;">
+    <button class="btn-ghost-dark" id="refreshBtn">↻ Refresh</button>
+    <button class="btn-ghost-dark" id="changeTokenBtn">Change token</button>
+    <a class="btn-link" href="https://github.com/ampro-repos/ambill-releases/actions" target="_blank">Actions tab →</a>
+    <a class="btn-link" href="https://github.com/ampro-repos/ambill-releases/issues" target="_blank">Issues tab →</a>
+  </div>
+</div>
 
 <div id="toast" class="toast"></div>
 
-<div id="tokenSetup" class="card">
-  <label>Your GitHub Personal Access Token</label>
-  <input type="password" id="tokenInput" placeholder="github_pat_...">
-  <button id="saveTokenBtn">Save Token</button>
-  <div class="hint">
-    Stored only in this browser (localStorage) — never sent anywhere except api.github.com.
+<div id="tokenWrap" class="hidden">
+  <div id="tokenSetup" class="panel">
+    <div class="panel-header"><div class="panel-title" style="margin:0;">Connect your GitHub account</div></div>
+    <div class="panel-body">
+      <label>Your GitHub Personal Access Token</label>
+      <input type="password" id="tokenInput" placeholder="github_pat_...">
+      <button class="btn-primary" id="saveTokenBtn">Save Token</button>
+      <div class="hint" style="margin-top:10px;">
+        Stored only in this browser (localStorage) — never sent anywhere except api.github.com.
+      </div>
+      <ol>
+        <li>GitHub → your profile photo → <b>Settings</b> → <b>Developer settings</b> → <b>Personal access tokens</b> → <b>Fine-grained tokens</b> → <b>Generate new token</b></li>
+        <li>Resource owner: <b>ampro-repos</b>. Repository access: <b>Only select repositories</b> → <b>ambill-releases</b></li>
+        <li>Permissions → Repository permissions:
+          <b>Issues</b> → Read and write ·
+          <b>Actions</b> → Read and write ·
+          <b>Contents</b> → Read and write
+        </li>
+        <li>Generate, copy the token, paste it above.</li>
+      </ol>
+    </div>
   </div>
-  <ol>
-    <li>GitHub → your profile photo → <b>Settings</b> → <b>Developer settings</b> → <b>Personal access tokens</b> → <b>Fine-grained tokens</b> → <b>Generate new token</b></li>
-    <li>Resource owner: <b>ampro-repos</b>. Repository access: <b>Only select repositories</b> → <b>ambill-releases</b></li>
-    <li>Permissions → Repository permissions:
-      <b>Issues</b> → Read and write ·
-      <b>Actions</b> → Read and write (needed to approve deployments and trigger payment checks) ·
-      <b>Contents</b> → Read and write (needed to revoke machines)
-    </li>
-    <li>Generate, copy the token, paste it above.</li>
-  </ol>
 </div>
 
 <div id="app" class="hidden">
-  <div class="row">
-    <button id="refreshBtn" class="secondary">↻ Refresh</button>
-    <button id="changeTokenBtn" class="secondary">Change token</button>
-    <a class="gh-link" href="https://github.com/ampro-repos/ambill-releases/actions" target="_blank">Open Actions tab →</a>
-    <a class="gh-link" href="https://github.com/ampro-repos/ambill-releases/issues" target="_blank">Open Issues tab →</a>
-  </div>
+  <div class="layout">
 
-  <div id="listCard" class="card">
-    <label>License Requests</label>
-    <div class="filter-bar">
-      <select id="fltState">
-        <option value="all">All statuses</option>
-        <option value="open">Open only</option>
-        <option value="closed">Closed only</option>
-      </select>
-      <select id="fltProduct">
-        <option value="all">All products</option>
-        <option value="ambill">ambill</option>
-        <option value="amfreezer">amfreezer</option>
-      </select>
-      <input type="text" id="fltSearch" placeholder="Search company / UID...">
-    </div>
-    <ul id="issueList" class="issue-list"></ul>
-    <div id="listEmpty" class="hint hidden">No requests match this filter.</div>
-    <div id="listLoading" class="hint">Loading...</div>
-  </div>
-
-  <div id="formCard" class="card hidden">
-    <div class="row" style="justify-content: space-between;">
-      <label style="margin:0;" id="formTitle">Request #</label>
-      <button id="backBtn" class="secondary">← Back to list</button>
-    </div>
-
-    <div id="readonlyBlock" class="readonly-block"></div>
-    <div id="licenseBox" class="hidden">
-      <div class="hint" style="margin-bottom:4px;">Signed license:</div>
-      <div id="licenseText" class="license-box"></div>
-    </div>
-
-    <div class="field-grid">
-      <div>
-        <label>Request Type</label>
-        <select id="fRequestType">
-          <option>New Activation</option>
-          <option>Renewal</option>
-          <option>Switched Computer</option>
-        </select>
-      </div>
-      <div>
-        <label>Previous Machine ID (only if switching)</label>
-        <input type="text" id="fPreviousUid" placeholder="XXXX-XXXX-XXXX-XXXX">
-      </div>
-
-      <div>
-        <label>Product</label>
-        <select id="fProduct">
-          <option value="ambill">ambill</option>
-          <option value="amfreezer">amfreezer</option>
-        </select>
-      </div>
-      <div>
-        <label>License Type</label>
-        <select id="fLicenseType">
-          <option>Paid</option>
-          <option>Trial</option>
-        </select>
-      </div>
-
-      <div>
-        <label>Expiry (days from approval)</label>
-        <input type="number" id="fExpiry" value="365" min="1">
-      </div>
-      <div>
-        <label>Payment Required</label>
-        <select id="fPaymentRequired">
-          <option>No</option>
-          <option>Yes</option>
-        </select>
-      </div>
-
-      <div id="paymentFields" class="full field-grid hidden" style="grid-template-columns: 1fr 1fr;">
-        <div>
-          <label>Payment Amount (INR)</label>
-          <input type="number" id="fPaymentAmount" min="1" placeholder="5000">
-        </div>
-        <div>
-          <label>Payment Provider</label>
-          <select id="fPaymentProvider">
-            <option value="UPI QR">UPI QR</option>
-            <option value="Razorpay">Razorpay</option>
+    <div class="panel" id="listCard">
+      <div class="panel-header">
+        <div class="panel-title">License Requests</div>
+        <div class="filter-bar">
+          <select id="fltState">
+            <option value="all">All statuses</option>
+            <option value="open">Open only</option>
+            <option value="closed">Closed only</option>
           </select>
+          <select id="fltProduct">
+            <option value="all">All products</option>
+            <option value="ambill">ambill</option>
+            <option value="amfreezer">amfreezer</option>
+          </select>
+          <input type="text" id="fltSearch" placeholder="Search company / UID...">
+        </div>
+      </div>
+      <div class="panel-body">
+        <div id="listLoading" class="spinner"></div>
+        <ul id="issueList" class="issue-list"></ul>
+        <div id="listEmpty" class="empty-state hidden">
+          <div class="icon">🔍</div>
+          <h3>No matching requests</h3>
+          <p>Try a different filter or search term.</p>
         </div>
       </div>
     </div>
 
-    <div class="row" style="margin-top: 16px;">
-      <button id="saveBtn">Save Changes</button>
-      <span id="saveHint" class="hint"></span>
+    <div class="panel" id="detailPanel">
+      <div id="emptyDetail" class="empty-state">
+        <div class="icon">📋</div>
+        <h3>Select a request</h3>
+        <p>Pick a license request from the list to view details, edit its terms, and take action.</p>
+      </div>
+
+      <div id="formCard" class="hidden">
+        <div class="panel-header">
+          <div class="form-title-row">
+            <h2 id="formTitle">Request #</h2>
+            <span id="formStatePill" class="state-pill open">open</span>
+          </div>
+        </div>
+        <div class="panel-body">
+
+          <div id="readonlyBlock" class="readonly-block"></div>
+          <div id="licenseBox" class="hidden">
+            <div class="hint" style="margin-bottom:6px;">Signed license</div>
+            <div id="licenseText" class="license-box"></div>
+          </div>
+
+          <div class="section-title">Request Details</div>
+          <div class="field-grid">
+            <div>
+              <label>Request Type</label>
+              <select id="fRequestType">
+                <option>New Activation</option>
+                <option>Renewal</option>
+                <option>Switched Computer</option>
+              </select>
+            </div>
+            <div>
+              <label>Previous Machine ID (only if switching)</label>
+              <input type="text" id="fPreviousUid" placeholder="XXXX-XXXX-XXXX-XXXX">
+            </div>
+
+            <div>
+              <label>Product</label>
+              <select id="fProduct">
+                <option value="ambill">ambill</option>
+                <option value="amfreezer">amfreezer</option>
+              </select>
+            </div>
+            <div>
+              <label>License Type</label>
+              <select id="fLicenseType">
+                <option>Paid</option>
+                <option>Trial</option>
+              </select>
+            </div>
+
+            <div>
+              <label>Expiry (days from approval)</label>
+              <input type="number" id="fExpiry" value="365" min="1">
+            </div>
+            <div>
+              <label>Payment Required</label>
+              <select id="fPaymentRequired">
+                <option>No</option>
+                <option>Yes</option>
+              </select>
+            </div>
+
+            <div id="paymentFields" class="full field-grid hidden" style="grid-template-columns: 1fr 1fr;">
+              <div>
+                <label>Payment Amount (INR)</label>
+                <input type="number" id="fPaymentAmount" min="1" placeholder="5000">
+              </div>
+              <div>
+                <label>Payment Provider</label>
+                <select id="fPaymentProvider">
+                  <option value="UPI QR">UPI QR</option>
+                  <option value="Razorpay">Razorpay</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div class="actions-row" style="margin-top: 18px;">
+            <button class="btn-primary" id="saveBtn">💾 Save Changes</button>
+            <span id="saveHint" class="hint" style="align-self:center;"></span>
+          </div>
+
+          <div class="section-title">Actions</div>
+          <div id="approvalHint" class="callout hidden"></div>
+          <div class="actions-row">
+            <button id="approveBtn" class="btn-teal">✓ Approve &amp; Sign Now</button>
+            <button id="runPaymentCheckBtn" class="btn-secondary">↻ Run Payment Check Now</button>
+            <button id="closeBtn" class="btn-secondary">✕ Close / Reject</button>
+            <button id="reopenBtn" class="btn-secondary hidden">↺ Reopen Request</button>
+            <button id="revokeBtn" class="btn-danger">⛔ Revoke This Machine</button>
+          </div>
+
+          <div class="section-title">Comment</div>
+          <textarea id="commentText" rows="3" placeholder="Note for the record, or a message the customer will see..."></textarea>
+          <div class="actions-row" style="margin-top: 10px;">
+            <button id="commentBtn" class="btn-secondary">💬 Post Comment</button>
+          </div>
+
+          <div class="actions-row" style="margin-top: 20px;">
+            <button id="backBtn" class="btn-secondary">← Back to list</button>
+          </div>
+
+        </div>
+      </div>
     </div>
 
-    <div class="section-title">Actions</div>
-    <div id="approvalHint" class="hint hidden"></div>
-    <div class="actions-row">
-      <button id="approveBtn" class="go">✓ Approve &amp; Sign Now</button>
-      <button id="runPaymentCheckBtn" class="secondary">↻ Run Payment Check Now</button>
-      <button id="closeBtn" class="secondary">Close / Reject Request</button>
-      <button id="reopenBtn" class="secondary hidden">Reopen Request</button>
-      <button id="revokeBtn" class="danger">⛔ Revoke This Machine</button>
-    </div>
-
-    <div class="section-title">Add a Comment</div>
-    <textarea id="commentText" rows="3" placeholder="Note for the record, or a message the customer will see..."></textarea>
-    <div class="row" style="margin-top: 8px;">
-      <button id="commentBtn" class="secondary">Post Comment</button>
-    </div>
   </div>
 </div>
 
@@ -317,13 +504,15 @@ async function gh(path, opts) {
 
 // ── Token setup ──────────────────────────────────────────────────────────
 function showApp() {
-  document.getElementById("tokenSetup").classList.add("hidden");
+  document.getElementById("tokenWrap").classList.add("hidden");
   document.getElementById("app").classList.remove("hidden");
+  document.getElementById("topbarAppActions").style.display = "flex";
   loadIssueList();
 }
 function showTokenSetup() {
-  document.getElementById("tokenSetup").classList.remove("hidden");
+  document.getElementById("tokenWrap").classList.remove("hidden");
   document.getElementById("app").classList.add("hidden");
+  document.getElementById("topbarAppActions").style.display = "none";
 }
 document.getElementById("saveTokenBtn").onclick = () => {
   const v = document.getElementById("tokenInput").value.trim();
@@ -362,6 +551,7 @@ function findRunForIssue(issueCreatedAt) {
 
 // ── Issue list ───────────────────────────────────────────────────────────
 let allIssues = [];
+let selectedIssueNumber = null;
 
 async function loadIssueList() {
   const listEl = document.getElementById("issueList");
@@ -370,8 +560,6 @@ async function loadIssueList() {
   listEl.innerHTML = "";
   empty.classList.add("hidden");
   loading.classList.remove("hidden");
-  document.getElementById("formCard").classList.add("hidden");
-  document.getElementById("listCard").classList.remove("hidden");
   try {
     const [issues] = await Promise.all([
       gh(`/issues?labels=license-request&state=all&per_page=100`),
@@ -432,11 +620,16 @@ function renderIssueList() {
     shown++;
     const status = computeStatus(entry);
     const li = document.createElement("li");
-    li.innerHTML = `<div>
-        <div class="company">${escapeHtml(company) || "(no company name)"}</div>
-        <div class="meta">#${issue.number} · ${escapeHtml(product)} · UID ${escapeHtml(uid) || "?"} · opened ${new Date(issue.created_at).toLocaleDateString()}</div>
-      </div>
-      <span class="badge ${status.cls}">${status.label}</span>`;
+    li.className = "issue-item" + (issue.number === selectedIssueNumber ? " selected" : "");
+    li.dataset.status = status.cls;
+    li.innerHTML = `<div class="row-between">
+        <div>
+          <div class="company">${escapeHtml(company) || "(no company name)"}</div>
+          <div class="meta">#${issue.number} · ${escapeHtml(product)} · UID ${escapeHtml(uid) || "?"}</div>
+          <div class="meta">opened ${new Date(issue.created_at).toLocaleDateString()}</div>
+        </div>
+        <span class="badge ${status.cls}">${status.label}</span>
+      </div>`;
     li.onclick = () => openIssue(entry);
     listEl.appendChild(li);
   }
@@ -451,16 +644,25 @@ let currentEntry = null;
 
 function openIssue(entry) {
   currentEntry = entry;
+  selectedIssueNumber = entry.issue.number;
   const { issue, license } = entry;
   const body = issue.body || "";
 
-  document.getElementById("formTitle").textContent = `Request #${issue.number} (${issue.state})`;
+  document.getElementById("emptyDetail").classList.add("hidden");
+  document.getElementById("formCard").classList.remove("hidden");
+  renderIssueList();
+
+  document.getElementById("formTitle").textContent = `Request #${issue.number}`;
+  const statePill = document.getElementById("formStatePill");
+  statePill.textContent = issue.state;
+  statePill.className = "state-pill " + issue.state;
+
   const status = computeStatus(entry);
   document.getElementById("readonlyBlock").innerHTML = `
-    <div><b>Company:</b> ${escapeHtml(getField(body, "Company Name"))}</div>
-    <div><b>Contact:</b> ${escapeHtml(getField(body, "Contact Person"))} — ${escapeHtml(getField(body, "Contact Phone"))}</div>
-    <div><b>Machine ID:</b> ${escapeHtml(getField(body, "Machine ID"))}</div>
-    <div><b>Status:</b> <span class="badge ${status.cls}">${status.label}</span></div>`;
+    <div class="rline"><b>Company</b> ${escapeHtml(getField(body, "Company Name"))}</div>
+    <div class="rline"><b>Contact</b> ${escapeHtml(getField(body, "Contact Person"))} — ${escapeHtml(getField(body, "Contact Phone"))}</div>
+    <div class="rline"><b>Machine ID</b> ${escapeHtml(getField(body, "Machine ID"))}</div>
+    <div class="rline"><b>Status</b> <span class="badge ${status.cls}">${status.label}</span></div>`;
 
   const licenseBox = document.getElementById("licenseBox");
   if (license) {
@@ -499,8 +701,6 @@ function openIssue(entry) {
   document.getElementById("reopenBtn").classList.toggle("hidden", issue.state !== "closed");
   document.getElementById("commentText").value = "";
   document.getElementById("saveHint").textContent = "";
-  document.getElementById("listCard").classList.add("hidden");
-  document.getElementById("formCard").classList.remove("hidden");
 }
 function setSelectValue(id, value) {
   const el = document.getElementById(id);
@@ -512,7 +712,13 @@ function togglePaymentFields() {
   document.getElementById("paymentFields").classList.toggle("hidden", !req);
 }
 document.getElementById("fPaymentRequired").onchange = togglePaymentFields;
-document.getElementById("backBtn").onclick = () => loadIssueList();
+document.getElementById("backBtn").onclick = () => {
+  selectedIssueNumber = null;
+  currentEntry = null;
+  document.getElementById("formCard").classList.add("hidden");
+  document.getElementById("emptyDetail").classList.remove("hidden");
+  renderIssueList();
+};
 document.getElementById("refreshBtn").onclick = () => loadIssueList();
 
 document.getElementById("saveBtn").onclick = async () => {

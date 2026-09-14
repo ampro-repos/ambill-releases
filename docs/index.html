@@ -810,6 +810,16 @@ function findRunForIssue(issueCreatedAt) {
 // ── Issue list ───────────────────────────────────────────────────────────
 let allIssues = [];
 let selectedIssueNumber = null;
+// Bumped by every operation that's about to overwrite allIssues/currentEntry and re-render
+// (loadIssueList, pollForApprovalResult). Each such operation captures its own ticket and
+// checks it's still current before applying results — without this, a slow-to-resolve Refresh
+// click racing against an in-flight poll (e.g. the admin clicking Refresh while "Mark Payment
+// Received" is still waiting on the signing job) could resolve AFTER the poll's own final
+// render and silently overwrite the list with the stale pre-signing snapshot it started with,
+// while the detail panel (only touched by whichever call runs openIssue last) stayed on the
+// poll's newer, correct state — the list and detail panel visibly disagreeing about the same
+// request's status.
+let renderGeneration = 0;
 
 // Both Refresh buttons (topbar + in-panel) drive this — a visible busy/disabled state and a
 // completion toast so a refresh is provably working even when the admin can't see the list's
@@ -829,6 +839,7 @@ async function loadIssueList(announceSuccess) {
   const listEl = document.getElementById("issueList");
   const empty = document.getElementById("listEmpty");
   const loading = document.getElementById("listLoading");
+  const myGen = ++renderGeneration;
   setRefreshBusy(true);
   listEl.innerHTML = "";
   empty.classList.add("hidden");
@@ -841,11 +852,16 @@ async function loadIssueList(announceSuccess) {
     // Fetch comments for every issue so status badges (Signed vs Closed) and
     // the license box are accurate — fine at this scale (a handful of
     // requests at a time), well within the 5000/hr authenticated API limit.
-    allIssues = await Promise.all(issues.map(async issue => {
+    const fetched = await Promise.all(issues.map(async issue => {
       let comments = [];
       try { comments = await gh(`/issues/${issue.number}/comments?per_page=30`); } catch (e) {}
       return { issue, comments, license: extractLicenseFromComments(comments) };
     }));
+    // A newer refresh (another click, or a poll that has since found a real change) started
+    // and possibly already finished while this fetch was in flight — its result is more
+    // current than this one, so drop this one on the floor instead of clobbering it.
+    if (myGen !== renderGeneration) return;
+    allIssues = fetched;
     renderIssueList();
     // Refresh doesn't just repopulate the list — if a request's detail panel is open, it was
     // holding a stale `currentEntry` (old comments, old license/payment-proof state) that this
@@ -859,10 +875,15 @@ async function loadIssueList(announceSuccess) {
       toast(`Updated — ${allIssues.length} request${allIssues.length === 1 ? "" : "s"} loaded.`, true);
     }
   } catch (e) {
-    toast("Could not load requests: " + e.message, false);
+    if (myGen === renderGeneration) toast("Could not load requests: " + e.message, false);
   } finally {
-    loading.classList.add("hidden");
-    setRefreshBusy(false);
+    // Only clear busy/loading state if nothing newer has taken over — otherwise this stale
+    // call's cleanup would prematurely re-enable a Refresh button a genuinely-still-running
+    // newer operation (e.g. a poll) needs to stay disabled.
+    if (myGen === renderGeneration) {
+      loading.classList.add("hidden");
+      setRefreshBusy(false);
+    }
   }
 }
 
@@ -1151,27 +1172,50 @@ async function pollForApprovalResult(issueNumber) {
   const approvalHint = document.getElementById("approvalHint");
   const originalBody = currentEntry.issue.body || "";
   const maxAttempts = 12;
+  // Takes over as the authoritative render operation for the rest of this poll — supersedes
+  // any earlier loadIssueList() still in flight, so a slow Refresh started just before this
+  // can't resolve later and clobber the poll's result. If something even newer than THIS poll
+  // starts (another Refresh click, another poll), myGen stops matching and every render below
+  // is skipped rather than fighting the newer operation for the last word.
+  const myGen = ++renderGeneration;
+  let fresh = null;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    if (myGen !== renderGeneration) return;
     if (approvalHint) {
       approvalHint.classList.remove("hidden");
       approvalHint.textContent = `Waiting for the signing job to finish — checking again shortly (${attempt}/${maxAttempts})...`;
     }
     await new Promise(r => setTimeout(r, 4000));
-    let fresh;
+    if (myGen !== renderGeneration) return;
     try { fresh = await fetchIssueEntry(issueNumber); } catch (e) { continue; }
+    if (myGen !== renderGeneration) return;
 
     const idx = allIssues.findIndex(e => e.issue.number === issueNumber);
     if (idx >= 0) allIssues[idx] = fresh;
 
-    const changed = fresh.issue.state !== "open" || (fresh.issue.body || "") !== originalBody;
-    if (changed) {
+    // Closing the issue and posting the license comment happen sequentially in the same job,
+    // but GitHub's comments list can lag a beat behind the issue's own state becoming visible
+    // via the API — closed-but-no-license-yet is a brief transient, not "rejected". Keep
+    // polling through it instead of finalizing on a false "CLOSED / REJECTED" read; a genuine
+    // reject (via Close/Reject) doesn't go through this poll at all.
+    const closedWithLicense = fresh.issue.state !== "open" && fresh.license;
+    const stillOpenButBodyChanged = fresh.issue.state === "open" && (fresh.issue.body || "") !== originalBody;
+    if (closedWithLicense || stillOpenButBodyChanged) {
       const stillSelected = currentEntry && currentEntry.issue.number === issueNumber;
       if (stillSelected) openIssue(fresh);
       else renderIssueList();
-      toast(fresh.issue.state !== "open" ? "License signed and the request was closed." : "Payment link is ready.", true);
+      toast(closedWithLicense ? "License signed and the request was closed." : "Payment link is ready.", true);
       return;
     }
     renderIssueList();
+  }
+  if (myGen !== renderGeneration) return;
+  // Ran out of attempts — render whatever the last fetch actually found (even an imperfect
+  // "closed, no license visible yet" read) rather than leaving the panel frozen on its
+  // pre-poll state, which would be even more stale and misleading than this.
+  if (fresh) {
+    const stillSelected = currentEntry && currentEntry.issue.number === issueNumber;
+    if (stillSelected) openIssue(fresh); else renderIssueList();
   }
   if (approvalHint) {
     approvalHint.classList.remove("hidden");

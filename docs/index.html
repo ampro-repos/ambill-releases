@@ -339,7 +339,7 @@
     <div class="brand-divider"></div>
     <div>
       <h1>License Admin</h1>
-      <div class="tagline">Review, edit, approve &amp; manage license requests</div>
+      <div class="tagline">Review, edit, approve &amp; manage license requests <span id="buildTag" style="opacity:.55;"></span></div>
     </div>
   </div>
   <div class="topbar-actions" id="topbarAppActions" style="display:none;">
@@ -553,6 +553,12 @@ const OWNER = "ampro-repos";
 const REPO = "ambill-releases";
 const API = `https://api.github.com/repos/${OWNER}/${REPO}`;
 const TOKEN_KEY = "ambill_admin_pat";
+// GitHub Pages caches this document for up to 10 minutes (Cache-Control: max-age=600) — a
+// "this fix isn't working" report is, more often than not, someone looking at a cached copy
+// from before the fix shipped. Bumped on every deploy so that can be confirmed at a glance
+// (and told apart from a real bug) instead of re-diagnosed from scratch each time.
+const BUILD_TAG = "build 2026-09-14 19:40 UTC";
+document.getElementById("buildTag").textContent = "· " + BUILD_TAG;
 
 function escapeRegex(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 // NOTE: [ \t]* (not \s*) before each newline — \s* also matches newlines, so on a field

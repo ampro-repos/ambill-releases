@@ -6,6 +6,11 @@ name: Payment Verification
 # the License Signing workflow); this just confirms the customer actually paid before
 # completing what was already approved, then does the same sign + revoke + post that workflow
 # would have done directly.
+#
+# Also handles the reverse edit: an admin who set Payment Required=Yes and later switches it
+# back to No (decided to let the customer in without paying) — license-signing.yml only ever
+# fires once, on issue creation, so it can't see that later edit; this scheduled sweep is what
+# picks it up and signs directly, skipping the Razorpay check entirely for that case.
 on:
   schedule:
     - cron: '*/15 * * * *'
@@ -36,11 +41,22 @@ jobs:
               return m ? m[1].trim() : "";
             }
 
+            // Scope: any open request that once generated a payment link (Payment Required
+            // was Yes at some point) — regardless of what Payment Required reads *now*.
+            // Covers two cases in one pass:
+            //  - still Yes: verify against Razorpay before signing (below).
+            //  - switched back to No by an admin who decided to let the customer in without
+            //    payment: sign directly, no Razorpay check needed — that edit is itself the
+            //    approval, same as it would have been if payment had never been required.
+            // license-signing.yml's own `opened`-triggered run only ever fires once per issue
+            // and can't see this later edit, so this scheduled sweep is the only thing that
+            // picks it up.
             const pending = issues
               .map(i => ({ number: i.number, body: i.body || "" }))
-              .filter(i => field(i.body, "Payment Required").toLowerCase() === "yes" && field(i.body, "Payment Link ID"))
+              .filter(i => field(i.body, "Payment Link ID"))
               .map(i => ({
                 number: i.number,
+                needsPayment: field(i.body, "Payment Required").toLowerCase() === "yes",
                 linkId: field(i.body, "Payment Link ID"),
                 machineUid: field(i.body, "Machine ID"),
                 product: field(i.body, "Product") || "ambill",
@@ -76,22 +92,32 @@ jobs:
           RAZORPAY_KEY_SECRET: ${{ secrets.RAZORPAY_KEY_SECRET }}
         shell: pwsh
         run: |
-          $authBytes = [System.Text.Encoding]::UTF8.GetBytes("${env:RAZORPAY_KEY_ID}:${env:RAZORPAY_KEY_SECRET}")
-          $authHeader = "Basic " + [Convert]::ToBase64String($authBytes)
+          $needsPayment = "${{ matrix.issue.needsPayment }}" -eq "true"
 
-          $link = Invoke-RestMethod -Uri "https://api.razorpay.com/v1/payment_links/${{ matrix.issue.linkId }}" -Headers @{ Authorization = $authHeader }
+          if (-not $needsPayment) {
+            # Admin switched Payment Required back to No after previously requiring it —
+            # that edit IS the approval to let this customer in without paying, same as it
+            # would have been if payment had never been required in the first place. Nothing
+            # to verify against Razorpay in this case.
+            "is_paid=true" >> $env:GITHUB_OUTPUT
+          } else {
+            $authBytes = [System.Text.Encoding]::UTF8.GetBytes("${env:RAZORPAY_KEY_ID}:${env:RAZORPAY_KEY_SECRET}")
+            $authHeader = "Basic " + [Convert]::ToBase64String($authBytes)
 
-          # Amount check is defense-in-depth on top of what Razorpay itself already enforces
-          # (the link was created with a fixed amount, the customer can't pay less) — guards
-          # against the "Payment Amount" field having been edited to something stale/wrong
-          # after the link was already created. Degrades to trusting Razorpay's own paid
-          # status alone if the field isn't a clean number.
-          $expectedRupees = 0
-          [void][int]::TryParse("${{ matrix.issue.paymentAmount }}", [ref]$expectedRupees)
-          $expectedPaise = $expectedRupees * 100
+            $link = Invoke-RestMethod -Uri "https://api.razorpay.com/v1/payment_links/${{ matrix.issue.linkId }}" -Headers @{ Authorization = $authHeader }
 
-          $isPaid = ($link.status -eq "paid") -and ($link.amount_paid -ge $expectedPaise)
-          "is_paid=$($isPaid.ToString().ToLower())" >> $env:GITHUB_OUTPUT
+            # Amount check is defense-in-depth on top of what Razorpay itself already enforces
+            # (the link was created with a fixed amount, the customer can't pay less) — guards
+            # against the "Payment Amount" field having been edited to something stale/wrong
+            # after the link was already created. Degrades to trusting Razorpay's own paid
+            # status alone if the field isn't a clean number.
+            $expectedRupees = 0
+            [void][int]::TryParse("${{ matrix.issue.paymentAmount }}", [ref]$expectedRupees)
+            $expectedPaise = $expectedRupees * 100
+
+            $isPaid = ($link.status -eq "paid") -and ($link.amount_paid -ge $expectedPaise)
+            "is_paid=$($isPaid.ToString().ToLower())" >> $env:GITHUB_OUTPUT
+          }
 
       - name: Sign license
         id: sign

@@ -407,6 +407,11 @@
             <div id="licenseText" class="license-box"></div>
           </div>
 
+          <div id="paymentProofBox" class="hidden" style="margin-bottom:16px;">
+            <div class="hint" style="margin-bottom:6px;">Customer's payment submission</div>
+            <div id="paymentProofContent" style="border:1px solid var(--border); border-radius:9px; padding:12px; background:#fafbfc;"></div>
+          </div>
+
           <div class="section-title">Request Details</div>
           <div class="field-grid">
             <div>
@@ -478,6 +483,7 @@
           <div class="section-title">Actions</div>
           <div id="approvalHint" class="callout hidden"></div>
           <div class="actions-row">
+            <button id="markPaidBtn" class="btn-primary hidden">✓ Mark Payment Received &amp; Release License</button>
             <button id="approveBtn" class="btn-teal">✓ Approve &amp; Sign Now</button>
             <button id="runPaymentCheckBtn" class="btn-secondary">↻ Run Payment Check Now</button>
             <button id="closeBtn" class="btn-secondary">✕ Close / Reject</button>
@@ -544,6 +550,40 @@ function extractLicenseFromComments(comments) {
     if (m) return m[1].trim();
   }
   return null;
+}
+function renderPaymentProof(comments) {
+  const box = document.getElementById("paymentProofBox");
+  const content = document.getElementById("paymentProofContent");
+  // Markers baked into ActivateLicense.cs's PostCommentAsync callers (UploadPaymentProofAsync /
+  // PostPaymentClaimCommentAsync) — whichever the customer's "I've Paid" click posted.
+  const proofComment = [...comments].reverse().find(c =>
+    (c.body || "").includes("Customer submitted payment confirmation") ||
+    (c.body || "").includes("Customer indicates payment was made"));
+
+  if (!proofComment) {
+    box.classList.add("hidden");
+    content.innerHTML = "";
+    return;
+  }
+
+  const body = proofComment.body || "";
+  const imgMatch = body.match(/!\[[^\]]*\]\(([^)]+)\)/);
+  const when = proofComment.created_at ? new Date(proofComment.created_at).toLocaleString() : "";
+  let html = "";
+  if (imgMatch) {
+    html += `<a href="${escapeHtml(imgMatch[1])}" target="_blank" rel="noopener">
+      <img src="${escapeHtml(imgMatch[1])}" alt="Payment proof" style="max-width:100%; max-height:360px; border-radius:6px; border:1px solid var(--border); display:block; margin-bottom:8px;">
+    </a>`;
+  }
+  const textOnly = body.replace(/!\[[^\]]*\]\([^)]+\)/g, "").trim();
+  if (textOnly) {
+    html += `<div style="white-space:pre-wrap; font-size:13px; color:var(--text);">${escapeHtml(textOnly)}</div>`;
+  }
+  if (when) {
+    html += `<div class="hint" style="margin-top:6px;">Submitted ${escapeHtml(when)}</div>`;
+  }
+  content.innerHTML = html;
+  box.classList.remove("hidden");
 }
 function escapeHtml(s) {
   return (s || "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -862,6 +902,8 @@ function openIssue(entry) {
     licenseBox.classList.add("hidden");
   }
 
+  renderPaymentProof(entry.comments || []);
+
   setSelectValue("fRequestType", getField(body, "Request Type") || "New Activation");
   const prevUid = getField(body, "Previous Machine ID (only if switching computers)");
   document.getElementById("fPreviousUid").value = prevUid;
@@ -875,6 +917,12 @@ function openIssue(entry) {
   document.getElementById("fPaymentAmount").value = getField(body, "Payment Amount (INR)");
   setSelectValue("fPaymentProvider", getField(body, "Payment Provider") || "UPI QR");
   togglePaymentFields();
+
+  const markPaidBtn = document.getElementById("markPaidBtn");
+  const isAwaitingPayment = issue.state === "open" && getField(body, "Payment Required").toLowerCase() === "yes";
+  markPaidBtn.classList.toggle("hidden", !isAwaitingPayment);
+  markPaidBtn.disabled = false;
+  markPaidBtn.textContent = "✓ Mark Payment Received & Release License";   // reset from "Releasing..." etc.
 
   const run = findRunForIssue(issue.created_at);
   const approveBtn = document.getElementById("approveBtn");
@@ -916,30 +964,71 @@ document.getElementById("backBtn").onclick = () => {
 };
 document.getElementById("refreshBtn").onclick = () => loadIssueList();
 
+// Reads the form fields into a new body string, PATCHes the issue, and updates currentEntry
+// in place. Shared by the plain Save button and Mark Payment Received (which needs to save
+// too, after flipping Payment Required, before triggering a sign).
+function buildUpdatedBody() {
+  let body = currentEntry.issue.body || "";
+  body = setField(body, "Request Type", document.getElementById("fRequestType").value);
+  body = setField(body, "Previous Machine ID (only if switching computers)", document.getElementById("fPreviousUid").value.trim());
+  body = setField(body, "Product", document.getElementById("fProduct").value);
+  body = setField(body, "Requested License Type", document.getElementById("fLicenseType").value);
+  const expiryDateStr = document.getElementById("fExpiryDate").value;
+  const expiryDays = expiryDateStr ? Math.max(1, daysBetweenTodayAnd(expiryDateStr)) : 365;
+  body = setField(body, "Requested Expiry (days from approval)", String(expiryDays));
+  body = setField(body, "Payment Required", document.getElementById("fPaymentRequired").value);
+  body = setField(body, "Payment Amount (INR)", document.getElementById("fPaymentAmount").value.trim());
+  body = setField(body, "Payment Provider", document.getElementById("fPaymentProvider").value);
+  return body;
+}
+async function saveFields() {
+  const body = buildUpdatedBody();
+  await gh(`/issues/${currentEntry.issue.number}`, { method: "PATCH", body: JSON.stringify({ body }) });
+  currentEntry.issue.body = body;
+  const idx = allIssues.findIndex(e => e.issue.number === currentEntry.issue.number);
+  if (idx >= 0) allIssues[idx].issue.body = body;
+  return body;
+}
+
 document.getElementById("saveBtn").onclick = async () => {
   const btn = document.getElementById("saveBtn");
   btn.disabled = true;
   document.getElementById("saveHint").textContent = "Saving...";
   try {
-    let body = currentEntry.issue.body || "";
-    body = setField(body, "Request Type", document.getElementById("fRequestType").value);
-    body = setField(body, "Previous Machine ID (only if switching computers)", document.getElementById("fPreviousUid").value.trim());
-    body = setField(body, "Product", document.getElementById("fProduct").value);
-    body = setField(body, "Requested License Type", document.getElementById("fLicenseType").value);
-    const expiryDateStr = document.getElementById("fExpiryDate").value;
-    const expiryDays = expiryDateStr ? Math.max(1, daysBetweenTodayAnd(expiryDateStr)) : 365;
-    body = setField(body, "Requested Expiry (days from approval)", String(expiryDays));
-    body = setField(body, "Payment Required", document.getElementById("fPaymentRequired").value);
-    body = setField(body, "Payment Amount (INR)", document.getElementById("fPaymentAmount").value.trim());
-    body = setField(body, "Payment Provider", document.getElementById("fPaymentProvider").value);
-
-    await gh(`/issues/${currentEntry.issue.number}`, { method: "PATCH", body: JSON.stringify({ body }) });
-    currentEntry.issue.body = body;
+    await saveFields();
     toast(`Saved request #${currentEntry.issue.number}.`, true);
     document.getElementById("saveHint").textContent = "Saved ✓";
   } catch (e) {
     toast("Save failed: " + e.message, false);
   } finally {
+    btn.disabled = false;
+  }
+};
+
+document.getElementById("markPaidBtn").onclick = async () => {
+  const issueNumber = currentEntry.issue.number;
+  const ok = await customConfirm(
+    "Mark this payment as received and release the license? This sets Payment Required to No and triggers signing immediately.",
+    { title: "Mark Payment Received", confirmText: "Mark Received & Release", kind: "info" }
+  );
+  if (!ok) return;
+  const btn = document.getElementById("markPaidBtn");
+  const approvalHint = document.getElementById("approvalHint");
+  btn.disabled = true;
+  try {
+    document.getElementById("fPaymentRequired").value = "No";
+    togglePaymentFields();
+    await saveFields();
+    await gh(`/actions/workflows/payment-verification.yml/dispatches`, {
+      method: "POST",
+      body: JSON.stringify({ ref: "main" })
+    });
+    btn.textContent = "⏳ Releasing license...";
+    toast("Marked as paid — releasing the license now.", true);
+    await pollForApprovalResult(issueNumber);
+    return;
+  } catch (e) {
+    toast("Could not mark as paid: " + e.message, false);
     btn.disabled = false;
   }
 };
@@ -1027,8 +1116,12 @@ async function pollForApprovalResult(issueNumber) {
     approvalHint.classList.remove("hidden");
     approvalHint.innerHTML = `Still nothing after a minute of checking — the job may be slower than usual, or something went wrong. <a class="gh-link" href="https://github.com/ampro-repos/ambill-releases/actions" target="_blank">Check the Actions tab →</a>, or click Refresh above.`;
   }
+  // Reset whichever button triggered this poll (approve or mark-paid) — resetting the other
+  // one too is harmless since openIssue() already hid/disabled it correctly for this state.
   document.getElementById("approveBtn").disabled = false;
   document.getElementById("approveBtn").textContent = "✓ Approve & Sign Now";
+  document.getElementById("markPaidBtn").disabled = false;
+  document.getElementById("markPaidBtn").textContent = "✓ Mark Payment Received & Release License";
 }
 
 // Shown on a 403 approving a deployment. Two independent causes, both worth

@@ -81,11 +81,32 @@ body:
       placeholder: "365"
     validations:
       required: true
+  - type: dropdown
+    id: payment_required
+    attributes:
+      label: Payment Required
+      description: Admin-set only — leave as No, this isn't something the customer decides.
+      options:
+        - "No"
+        - "Yes"
+      default: 0
+    validations:
+      required: true
+  - type: input
+    id: payment_amount
+    attributes:
+      label: Payment Amount (INR)
+      description: Only used if Payment Required is Yes.
+      placeholder: "5000"
+    validations:
+      required: false
   - type: markdown
     attributes:
       value: |
         ---
         **Ambill Support:** the fields above are the customer's request — before
-        approving, you can edit this issue (product, license type, expiry) to
-        whatever you're actually granting. Whatever is in the issue at the moment
-        you approve is what gets signed.
+        approving, you can edit this issue (product, license type, expiry, and
+        whether payment is required + the amount) to whatever you're actually
+        granting. Whatever is in the issue at the moment you approve is what
+        determines what happens next — signed immediately, or a payment link
+        generated first if Payment Required is Yes.

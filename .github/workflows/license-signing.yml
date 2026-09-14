@@ -99,14 +99,21 @@ jobs:
             let expiryDays    = parseInt(field("Requested Expiry \\(days from approval\\)"), 10);
             if (!expiryDays || expiryDays <= 0) expiryDays = 365;
             const previousUid = field("Previous Machine ID \\(only if switching computers\\)");
+            const paymentRequired = field("Payment Required").trim().toLowerCase() === 'yes';
+            const paymentAmount = field("Payment Amount \\(INR\\)");
 
             core.setOutput('machine_uid', machineUid);
             core.setOutput('product', product);
             core.setOutput('is_trial', licenseType.trim().toLowerCase() === 'trial' ? 'true' : 'false');
             core.setOutput('expiry_days', String(expiryDays));
             core.setOutput('previous_uid', previousUid);
+            core.setOutput('payment_required', paymentRequired ? 'true' : 'false');
+            core.setOutput('payment_amount', paymentAmount);
+            core.setOutput('company_name', ${{ toJson(needs.parse.outputs.company_name) }});
 
+      # Payment not required (the default/original path) — sign immediately, same as before.
       - name: Sign license
+        if: steps.fields.outputs.payment_required != 'true'
         id: sign
         env:
           LICENSE_SIGNING_PFX_BASE64: ${{ secrets.LICENSE_SIGNING_PFX_BASE64 }}
@@ -131,13 +138,70 @@ jobs:
           # GITHUB_OUTPUT, not the log, so the license string itself is never printed anywhere
           "license_string=$licenseString" >> $env:GITHUB_OUTPUT
 
+      # Payment required — generate a Razorpay payment link and stop here. Nothing gets signed
+      # in this run; the scheduled Payment Verification workflow independently confirms payment
+      # directly against Razorpay's own API (not this app's say-so) before ever signing, so no
+      # second manual approval is needed once payment clears.
+      - name: Generate payment link
+        if: steps.fields.outputs.payment_required == 'true'
+        id: paylink
+        env:
+          RAZORPAY_KEY_ID: ${{ secrets.RAZORPAY_KEY_ID }}
+          RAZORPAY_KEY_SECRET: ${{ secrets.RAZORPAY_KEY_SECRET }}
+        shell: pwsh
+        run: |
+          $amountRupees = [int]"${{ steps.fields.outputs.payment_amount }}"
+          if ($amountRupees -le 0) { Write-Error "Payment Amount (INR) must be a positive number."; exit 1 }
+          $amountPaise = $amountRupees * 100
+
+          $authBytes = [System.Text.Encoding]::UTF8.GetBytes("${env:RAZORPAY_KEY_ID}:${env:RAZORPAY_KEY_SECRET}")
+          $authHeader = "Basic " + [Convert]::ToBase64String($authBytes)
+
+          $body = @{
+            amount          = $amountPaise
+            currency        = "INR"
+            description     = "ambill license - ${{ steps.fields.outputs.company_name }}"
+            callback_url    = "https://ambill-app.local/payment-complete"
+            callback_method = "get"
+            notify          = @{ sms = $false; email = $false }
+          } | ConvertTo-Json
+
+          $response = Invoke-RestMethod -Uri "https://api.razorpay.com/v1/payment_links" -Method Post `
+            -Headers @{ Authorization = $authHeader } -ContentType "application/json" -Body $body
+
+          "payment_link_id=$($response.id)" >> $env:GITHUB_OUTPUT
+          "payment_link_url=$($response.short_url)" >> $env:GITHUB_OUTPUT
+
+      - name: Post payment link on the issue
+        if: steps.fields.outputs.payment_required == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = await github.rest.issues.get({ ...context.repo, issue_number: context.issue.number });
+            const newBody = (issue.data.body || "") +
+              "\n\n### Payment Link\n\n${{ steps.paylink.outputs.payment_link_url }}\n\n" +
+              "### Payment Link ID\n\n${{ steps.paylink.outputs.payment_link_id }}\n";
+
+            await github.rest.issues.update({ ...context.repo, issue_number: context.issue.number, body: newBody });
+
+            await github.rest.issues.createComment({
+              ...context.repo,
+              issue_number: context.issue.number,
+              body: "Payment required to complete this request — **₹${{ steps.fields.outputs.payment_amount }}**.\n\n" +
+                "Pay here: ${{ steps.paylink.outputs.payment_link_url }}\n\n" +
+                "Your license will be issued automatically once payment is confirmed (may take a few minutes)."
+            });
+
       # Best-effort: a hiccup here (e.g. a push race with another concurrent approval) must
       # never block the customer actually getting their new license below — but a silent
       # failure here means the old machine never actually gets revoked with zero trace
       # anywhere, so this step reports its own outcome for the follow-up step below to act on.
       - name: Revoke previous machine (if switching computers)
         id: revoke
-        if: steps.fields.outputs.previous_uid != '' && steps.fields.outputs.previous_uid != steps.fields.outputs.machine_uid
+        if: >-
+          steps.fields.outputs.payment_required != 'true' &&
+          steps.fields.outputs.previous_uid != '' &&
+          steps.fields.outputs.previous_uid != steps.fields.outputs.machine_uid
         continue-on-error: true
         shell: pwsh
         run: |
@@ -173,7 +237,10 @@ jobs:
       # customer the moment their app checks, immediately after being approved. Flag it
       # instead of silently acting on what's almost certainly a copy-paste mistake.
       - name: Flag same-machine revocation mistake
-        if: steps.fields.outputs.previous_uid != '' && steps.fields.outputs.previous_uid == steps.fields.outputs.machine_uid
+        if: >-
+          steps.fields.outputs.payment_required != 'true' &&
+          steps.fields.outputs.previous_uid != '' &&
+          steps.fields.outputs.previous_uid == steps.fields.outputs.machine_uid
         uses: actions/github-script@v7
         with:
           script: |
@@ -197,6 +264,7 @@ jobs:
             });
 
       - name: Post license back on the issue and close it
+        if: steps.fields.outputs.payment_required != 'true'
         uses: actions/github-script@v7
         with:
           script: |

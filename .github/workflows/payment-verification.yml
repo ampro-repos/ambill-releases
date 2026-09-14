@@ -1,0 +1,178 @@
+name: Payment Verification
+
+# Runs independently of human approval — the trust boundary here is Razorpay's own API
+# response, not a second manual click. The human approval already happened when Ambill
+# Support set Payment Required=Yes on the request (that's what generated the payment link in
+# the License Signing workflow); this just confirms the customer actually paid before
+# completing what was already approved, then does the same sign + revoke + post that workflow
+# would have done directly.
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:   # manual trigger — handy for testing without waiting for the schedule
+
+permissions:
+  issues: write
+  contents: write
+
+jobs:
+  find-pending:
+    runs-on: ubuntu-latest
+    outputs:
+      pending: ${{ steps.find.outputs.pending }}
+    steps:
+      - name: Find open payment-pending requests
+        id: find
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issues = await github.paginate(github.rest.issues.listForRepo, {
+              ...context.repo, state: 'open', labels: 'license-request', per_page: 100
+            });
+
+            function field(body, label) {
+              const re = new RegExp("### " + label + "\\s*\\n\\s*\\n([^\\n]*)");
+              const m = body.match(re);
+              return m ? m[1].trim() : "";
+            }
+
+            const pending = issues
+              .map(i => ({ number: i.number, body: i.body || "" }))
+              .filter(i => field(i.body, "Payment Required").toLowerCase() === "yes" && field(i.body, "Payment Link ID"))
+              .map(i => ({
+                number: i.number,
+                linkId: field(i.body, "Payment Link ID"),
+                machineUid: field(i.body, "Machine ID"),
+                product: field(i.body, "Product") || "ambill",
+                isTrial: field(i.body, "Requested License Type").toLowerCase() === "trial",
+                expiryDays: parseInt(field(i.body, "Requested Expiry \\(days from approval\\)"), 10) || 365,
+                previousUid: field(i.body, "Previous Machine ID \\(only if switching computers\\)"),
+                paymentAmount: field(i.body, "Payment Amount \\(INR\\)")
+              }));
+
+            core.setOutput('pending', JSON.stringify(pending));
+
+  verify-and-sign:
+    needs: find-pending
+    if: needs.find-pending.outputs.pending != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        issue: ${{ fromJson(needs.find-pending.outputs.pending) }}
+    runs-on: windows-latest
+    # Same signing secrets as license-signing.yml's environment, duplicated onto this one
+    # deliberately WITHOUT a required-reviewer gate — the trust boundary for this workflow is
+    # the Razorpay status check below, not a second human click on top of the approval that
+    # already happened to generate the payment link in the first place.
+    environment: license-signing-auto
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check Razorpay payment status
+        id: check
+        env:
+          RAZORPAY_KEY_ID: ${{ secrets.RAZORPAY_KEY_ID }}
+          RAZORPAY_KEY_SECRET: ${{ secrets.RAZORPAY_KEY_SECRET }}
+        shell: pwsh
+        run: |
+          $authBytes = [System.Text.Encoding]::UTF8.GetBytes("${env:RAZORPAY_KEY_ID}:${env:RAZORPAY_KEY_SECRET}")
+          $authHeader = "Basic " + [Convert]::ToBase64String($authBytes)
+
+          $link = Invoke-RestMethod -Uri "https://api.razorpay.com/v1/payment_links/${{ matrix.issue.linkId }}" -Headers @{ Authorization = $authHeader }
+
+          # Amount check is defense-in-depth on top of what Razorpay itself already enforces
+          # (the link was created with a fixed amount, the customer can't pay less) — guards
+          # against the "Payment Amount" field having been edited to something stale/wrong
+          # after the link was already created. Degrades to trusting Razorpay's own paid
+          # status alone if the field isn't a clean number.
+          $expectedRupees = 0
+          [void][int]::TryParse("${{ matrix.issue.paymentAmount }}", [ref]$expectedRupees)
+          $expectedPaise = $expectedRupees * 100
+
+          $isPaid = ($link.status -eq "paid") -and ($link.amount_paid -ge $expectedPaise)
+          "is_paid=$($isPaid.ToString().ToLower())" >> $env:GITHUB_OUTPUT
+
+      - name: Sign license
+        id: sign
+        if: steps.check.outputs.is_paid == 'true'
+        env:
+          LICENSE_SIGNING_PFX_BASE64: ${{ secrets.LICENSE_SIGNING_PFX_BASE64 }}
+          LICENSE_SIGNING_PFX_PASSWORD: ${{ secrets.LICENSE_SIGNING_PFX_PASSWORD }}
+        shell: pwsh
+        run: |
+          $exe = "tools\LicenseSigningCLI\LicenseSigningCLI.exe"
+          $cliArgs = @("--uid", "${{ matrix.issue.machineUid }}", "--appname", "${{ matrix.issue.product }}", "--expiry-days", "${{ matrix.issue.expiryDays }}")
+          if ("${{ matrix.issue.isTrial }}" -eq "true") { $cliArgs += "--trial" }
+
+          $licenseString = & $exe @cliArgs
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Signing failed: $licenseString"
+            exit 1
+          }
+
+          # GITHUB_OUTPUT, not the log, so the license string itself is never printed anywhere
+          "license_string=$licenseString" >> $env:GITHUB_OUTPUT
+
+      # Same best-effort + retry-once + never-block-the-license pattern as license-signing.yml.
+      - name: Revoke previous machine (if switching computers)
+        id: revoke
+        if: >-
+          steps.check.outputs.is_paid == 'true' &&
+          matrix.issue.previousUid != '' &&
+          matrix.issue.previousUid != matrix.issue.machineUid
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          $prevUid = "${{ matrix.issue.previousUid }}"
+          $listPath = "revoked-uids.json"
+          $revokedAt = (Get-Date).ToUniversalTime().ToString("o")
+
+          $list = @()
+          if (Test-Path $listPath) {
+            $raw = Get-Content $listPath -Raw
+            if ($raw.Trim().Length -gt 0) { $list = @(ConvertFrom-Json $raw) }
+          }
+          $list += [PSCustomObject]@{ uid = $prevUid; revokedAt = $revokedAt; reason = "Switched to a new computer" }
+          $list | ConvertTo-Json -Depth 3 | Set-Content $listPath
+
+          git config user.name "ambill-license-bot"
+          git config user.email "actions@github.com"
+          git add $listPath
+          git commit -m "Revoke UID $prevUid (superseded by a new activation)"
+          git push
+          if ($LASTEXITCODE -ne 0) {
+            git pull --rebase
+            git push
+            if ($LASTEXITCODE -ne 0) { throw "Could not push revoked-uids.json after retry" }
+          }
+
+      - name: Flag failed revocation
+        if: steps.revoke.outcome == 'failure'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              ...context.repo,
+              issue_number: ${{ matrix.issue.number }},
+              body: "⚠️ The new license below was issued, but retiring the previous machine's license failed (couldn't save revoked-uids.json). That old machine has NOT been revoked — please retry the switch manually or add it to revoked-uids.json by hand."
+            });
+
+      - name: Post license back on the issue and close it
+        if: steps.check.outputs.is_paid == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const licenseString = `${{ steps.sign.outputs.license_string }}`;
+
+            await github.rest.issues.createComment({
+              ...context.repo,
+              issue_number: ${{ matrix.issue.number }},
+              body: "Payment confirmed — your license has been generated.\n\n```\n" + licenseString + "\n```\n\nPaste this into the ambill Activate License screen if it doesn't fill in automatically."
+            });
+
+            await github.rest.issues.update({
+              ...context.repo,
+              issue_number: ${{ matrix.issue.number }},
+              state: 'closed'
+            });

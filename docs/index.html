@@ -375,6 +375,12 @@
   <div class="topbar-actions" id="topbarAppActions" style="display:none;">
     <button class="btn-ghost-dark" id="refreshBtn">↻ Refresh</button>
     <button class="btn-ghost-dark" id="changeTokenBtn">Change token</button>
+    <!-- Links straight to GitHub's own native workflow-dispatch form (version box, Mandatory
+         checkbox, release-notes box) rather than embedding a trigger here — that would need
+         this page's admin token to also reach into ampro-apps (the private source repo), a
+         real widening of what a leaked/overbroad token could do, for a form GitHub already
+         renders for free. See publish-release.yml's own header comment. -->
+    <a class="btn-link" href="https://github.com/ampro-repos/ampro-apps/actions/workflows/publish-release.yml" target="_blank">🚀 Publish Update →</a>
     <a class="btn-link" href="https://github.com/ampro-repos/ambill-releases/actions" target="_blank">Actions tab →</a>
     <a class="btn-link" href="https://github.com/ampro-repos/ambill-releases/issues" target="_blank">Issues tab →</a>
   </div>
@@ -588,7 +594,7 @@ const TOKEN_KEY = "ambill_admin_pat";
 // "this fix isn't working" report is, more often than not, someone looking at a cached copy
 // from before the fix shipped. Bumped on every deploy so that can be confirmed at a glance
 // (and told apart from a real bug) instead of re-diagnosed from scratch each time.
-const BUILD_TAG = "build 2026-09-14 20:02 UTC";
+const BUILD_TAG = "build 2026-09-15 13:05 UTC";
 document.getElementById("buildTag").textContent = "· " + BUILD_TAG;
 
 function escapeRegex(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }

@@ -493,6 +493,10 @@
         <div class="panel-body">
 
           <div id="readonlyBlock" class="readonly-block"></div>
+
+          <div class="section-title">Crash Reports (this machine)</div>
+          <div id="licenseCrashList" style="margin-bottom: 16px;"><div class="hint">Loading…</div></div>
+
           <div id="licenseBox" class="hidden">
             <div class="hint" style="margin-bottom:6px;">Signed license</div>
             <div id="licenseText" class="license-box"></div>
@@ -1151,6 +1155,8 @@ function openIssue(entry) {
     <div class="rline"><b>Machine ID</b> ${escapeHtml(getField(body, "Machine ID"))}</div>
     <div class="rline"><b>Status</b> <span class="badge ${status.cls}">${status.label}</span></div>`;
 
+  renderLicenseCrashSection(getField(body, "Machine ID"), issue.number);
+
   const licenseBox = document.getElementById("licenseBox");
   if (license) {
     licenseBox.classList.remove("hidden");
@@ -1643,6 +1649,50 @@ function computeCrashStatus(entry) {
 function countOccurrences(entry) {
   const recurrences = (entry.comments || []).filter(c => (c.body || "").startsWith("Seen again")).length;
   return 1 + recurrences;
+}
+
+// ── License ↔ crash-report correlation ──────────────────────────────────
+// No labels/hashing needed for this — Device UID (crash reports) and Machine ID
+// (license requests) come from the exact same LicenseHandler.GenerateUID() call
+// on the client, so a plain string match is enough. Crash issues are only
+// lazy-loaded (see crashListLoadedOnce) the first time they're needed, whether
+// that's opening the Crash Reports tab OR opening a license request — either
+// one triggers the one-time bulk fetch below.
+async function renderLicenseCrashSection(machineUid, forIssueNumber) {
+  const container = document.getElementById("licenseCrashList");
+  if (!machineUid) {
+    container.innerHTML = `<div class="hint">No Machine ID on this request yet.</div>`;
+    return;
+  }
+  container.innerHTML = `<div class="hint">Loading…</div>`;
+  if (!crashListLoadedOnce) {
+    crashListLoadedOnce = true;
+    try { await loadCrashList(); } catch (e) { /* loadCrashList already reports its own errors */ }
+  }
+  // The admin may have clicked a different request (or Back) while the lazy load above was
+  // still in flight — don't overwrite whatever's now actually showing.
+  if (!currentEntry || currentEntry.issue.number !== forIssueNumber) return;
+
+  const matches = allCrashIssues.filter(e => getField(e.issue.body || "", "Device UID") === machineUid);
+  if (!matches.length) {
+    container.innerHTML = `<div class="hint">No crash reports from this machine.</div>`;
+    return;
+  }
+  container.innerHTML = matches.map(entry => {
+    const eBody = entry.issue.body || "";
+    const status = computeCrashStatus(entry);
+    const exceptionType = getField(eBody, "Exception Type") || "Unknown";
+    const occurrences = countOccurrences(entry);
+    return `<div class="history-item">
+      <div class="row-between">
+        <div><b>${escapeHtml(shortenExceptionType(exceptionType))}</b></div>
+        <span class="badge ${status.cls}">${status.label}</span>
+      </div>
+      <div class="hwhen">#${entry.issue.number} · seen ${occurrences}× ·
+        <a class="gh-link" href="https://github.com/${OWNER}/${CRASH_REPO}/issues/${entry.issue.number}" target="_blank">View on GitHub →</a>
+      </div>
+    </div>`;
+  }).join("");
 }
 
 async function loadCrashList(announceSuccess) {

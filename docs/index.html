@@ -1764,7 +1764,9 @@ function openCrashIssue(entry) {
     <div class="rline"><b>Device UID</b> ${escapeHtml(getField(body, "Device UID"))}</div>
     <div class="rline"><b>Machine</b> ${escapeHtml(getField(body, "Machine Name"))}</div>
     <div class="rline"><b>OS</b> ${escapeHtml(getField(body, "OS Version"))}</div>
+    ${getField(body, "User") ? `<div class="rline"><b>User</b> ${escapeHtml(getField(body, "User"))}</div>` : ""}
     ${getField(body, "Company") ? `<div class="rline"><b>Company</b> ${escapeHtml(getField(body, "Company"))}</div>` : ""}
+    ${getField(body, "Target Site") ? `<div class="rline"><b>Target Site</b> ${escapeHtml(getField(body, "Target Site"))}</div>` : ""}
     <div class="rline"><b>First Seen</b> ${escapeHtml(getField(body, "First Seen (UTC)"))} UTC</div>
     <div class="rline"><b>Occurrences</b> ${occurrences}×</div>`;
 

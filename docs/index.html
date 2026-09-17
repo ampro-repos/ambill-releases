@@ -208,6 +208,10 @@
   .badge-fatal       { background: var(--danger-bg); color: var(--danger); }
   .badge-recoverable { background: #fff4d6; color: #a3720a; }
   .badge-unobserved  { background: #f0e6ff; color: #7439c9; }
+  /* Already caught + shown to the user as a toast elsewhere in the app — much higher expected
+     volume than a genuine crash, so deliberately the quietest/most muted of the four, not an
+     escalating color like the others. */
+  .badge-caught      { background: var(--teal-light); color: var(--teal); }
   .badge-ignored     { background: #f1f3f5; color: #64748b; }
   .issue-item.selected .issue-item-border { border-left-color: var(--teal); }
 
@@ -220,6 +224,7 @@
   .issue-item[data-status="badge-fatal"]       { border-left-color: var(--danger); }
   .issue-item[data-status="badge-recoverable"] { border-left-color: #a3720a; }
   .issue-item[data-status="badge-unobserved"]  { border-left-color: #7439c9; }
+  .issue-item[data-status="badge-caught"]      { border-left-color: var(--teal); }
   .issue-item[data-status="badge-ignored"]     { border-left-color: #94a3b8; }
 
   /* ── View tabs (License Requests vs Crash Reports) ── */
@@ -1630,6 +1635,7 @@ let crashRenderGeneration = 0;
 function severityBadgeClass(sev) {
   if (sev === "Fatal") return "badge-fatal";
   if (sev === "Unobserved") return "badge-unobserved";
+  if (sev === "Caught") return "badge-caught";
   return "badge-recoverable";
 }
 function isIgnored(issue) {

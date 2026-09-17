@@ -110,6 +110,7 @@
        above the detail panel — otherwise reaching anything in the detail panel (including
        the topbar's Refresh button) means scrolling past the whole request list every time. */
     .layout.detail-open #listCard { display: none; }
+    .layout.detail-open #crashListCard { display: none; }
   }
   .panel {
     background: var(--panel);
@@ -204,6 +205,10 @@
   .badge-signed    { background: var(--success-bg); color: var(--success); }
   .badge-closed    { background: var(--danger-bg); color: var(--danger); }
   .badge-approval  { background: #f0e6ff; color: #7439c9; }
+  .badge-fatal       { background: var(--danger-bg); color: var(--danger); }
+  .badge-recoverable { background: #fff4d6; color: #a3720a; }
+  .badge-unobserved  { background: #f0e6ff; color: #7439c9; }
+  .badge-ignored     { background: #f1f3f5; color: #64748b; }
   .issue-item.selected .issue-item-border { border-left-color: var(--teal); }
 
   /* map status -> left border accent on the list item */
@@ -212,6 +217,23 @@
   .issue-item[data-status="badge-signed"]   { border-left-color: var(--success); }
   .issue-item[data-status="badge-closed"]   { border-left-color: var(--danger); }
   .issue-item[data-status="badge-approval"] { border-left-color: #7439c9; }
+  .issue-item[data-status="badge-fatal"]       { border-left-color: var(--danger); }
+  .issue-item[data-status="badge-recoverable"] { border-left-color: #a3720a; }
+  .issue-item[data-status="badge-unobserved"]  { border-left-color: #7439c9; }
+  .issue-item[data-status="badge-ignored"]     { border-left-color: #94a3b8; }
+
+  /* ── View tabs (License Requests vs Crash Reports) ── */
+  .tab-strip { display: flex; gap: 6px; }
+  .tab-btn.tab-active { background: var(--teal); border-color: transparent; }
+  .tab-btn.tab-active:hover { background: #0b7f91; }
+
+  .state-pill.ignored { background: #f1f3f5; color: #64748b; }
+
+  .history-item {
+    border: 1px solid var(--border); border-radius: 8px; padding: 9px 12px;
+    margin-bottom: 8px; font-size: 12.5px; background: #fafbfc;
+  }
+  .history-item .hwhen { color: var(--muted); font-size: 11.5px; margin-bottom: 3px; }
 
   /* ── Toast ── */
   .toast {
@@ -373,6 +395,10 @@
     </div>
   </div>
   <div class="topbar-actions" id="topbarAppActions" style="display:none;">
+    <div class="tab-strip" id="viewTabs">
+      <button class="btn-ghost-dark tab-btn tab-active" id="tabLicense" data-view="license">📋 License Requests</button>
+      <button class="btn-ghost-dark tab-btn" id="tabCrash" data-view="crash">🐞 Crash Reports</button>
+    </div>
     <button class="btn-ghost-dark" id="refreshBtn">↻ Refresh</button>
     <button class="btn-ghost-dark" id="changeTokenBtn">Change token</button>
     <!-- Links straight to GitHub's own native workflow-dispatch form (version box, Mandatory
@@ -400,12 +426,13 @@
       </div>
       <ol>
         <li>GitHub → your profile photo → <b>Settings</b> → <b>Developer settings</b> → <b>Personal access tokens</b> → <b>Fine-grained tokens</b> → <b>Generate new token</b></li>
-        <li>Resource owner: <b>ampro-repos</b>. Repository access: <b>Only select repositories</b> → <b>ambill-releases</b></li>
+        <li>Resource owner: <b>ampro-repos</b>. Repository access: <b>Only select repositories</b> → <b>ambill-releases</b> AND <b>ambill-error-reports</b> (select both — the same token now drives both the License Requests and Crash Reports tabs on this page)</li>
         <li>Permissions → Repository permissions:
           <b>Issues</b> → Read and write ·
           <b>Actions</b> → Read and write ·
           <b>Deployments</b> → Read and write ·
           <b>Contents</b> → Read and write
+          <br>(on <b>ambill-error-reports</b> only <b>Issues</b> → Read and write is actually needed)
         </li>
         <li>"Deployments" is a separate permission from "Actions" — per GitHub's own docs, it's specifically what "Approve &amp; Sign Now" needs to review a pending deployment. Easy to miss; without it you'll get a 403.</li>
         <li>Approving also requires the token's own account to actually be the required reviewer on the <b>license-signing</b> environment (currently <b>mcankalx</b>) — a token from any other account will still 403 even with every permission above granted.</li>
@@ -571,6 +598,85 @@
     </div>
 
   </div>
+
+  <div class="layout hidden" id="crashLayoutRoot">
+
+    <div class="panel" id="crashListCard">
+      <div class="panel-header">
+        <div class="panel-title">Crash Reports</div>
+        <div class="filter-bar">
+          <select id="crashFltState">
+            <option value="open">Open only</option>
+            <option value="all">All statuses</option>
+            <option value="closed">Closed only</option>
+          </select>
+          <select id="crashFltSeverity">
+            <option value="all">All severities</option>
+            <option value="Fatal">Fatal</option>
+            <option value="Recoverable">Recoverable</option>
+            <option value="Unobserved">Unobserved</option>
+          </select>
+          <label style="display:flex; align-items:center; gap:6px; font-weight:500; margin-top:2px; cursor:pointer;">
+            <input type="checkbox" id="crashShowIgnored" style="width:auto;"> Show ignored
+          </label>
+          <input type="text" id="crashFltSearch" placeholder="Search exception type / message...">
+        </div>
+      </div>
+      <div class="panel-body">
+        <div id="crashListLoading" class="spinner"></div>
+        <ul id="crashIssueList" class="issue-list"></ul>
+        <div id="crashListEmpty" class="empty-state hidden">
+          <div class="icon">🐞</div>
+          <h3>No matching crash reports</h3>
+          <p>Try a different filter — or nothing has been reported yet.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" id="crashDetailPanel">
+      <div id="crashEmptyDetail" class="empty-state">
+        <div class="icon">📋</div>
+        <h3>Select a crash report</h3>
+        <p>Pick one from the list to see the full stack trace and recurrence history.</p>
+      </div>
+
+      <div id="crashFormCard" class="hidden">
+        <div class="panel-header">
+          <div class="form-title-row">
+            <h2 id="crashFormTitle">Report #</h2>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span id="crashFormStatePill" class="state-pill open">open</span>
+              <button id="crashDetailRefreshBtn" class="icon-btn" title="Refresh this report">↻</button>
+            </div>
+          </div>
+        </div>
+        <div class="panel-body">
+
+          <div id="crashReadonlyBlock" class="readonly-block"></div>
+
+          <div class="section-title">Stack Trace</div>
+          <div id="crashStackTrace" class="license-box" style="max-height: 260px;"></div>
+
+          <div class="section-title">Recurrence History</div>
+          <div id="crashHistoryList"></div>
+
+          <div class="section-title">Actions</div>
+          <div class="actions-row">
+            <button id="crashIgnoreBtn" class="btn-secondary">🙈 Ignore</button>
+            <button id="crashCloseBtn" class="btn-secondary">✕ Close (fixed)</button>
+            <button id="crashReopenBtn" class="btn-secondary hidden">↺ Reopen</button>
+            <a class="btn-link" id="crashGhLink" href="#" target="_blank" style="align-self:center;">View on GitHub →</a>
+          </div>
+
+          <div class="actions-row" style="margin-top: 20px;">
+            <button id="crashBackBtn" class="btn-secondary">← Back to list</button>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+  </div>
 </div>
 
 <div id="modalOverlay" class="modal-overlay hidden">
@@ -589,12 +695,18 @@
 const OWNER = "ampro-repos";
 const REPO = "ambill-releases";
 const API = `https://api.github.com/repos/${OWNER}/${REPO}`;
+// Crash reports live in their own dedicated repo — kept separate from
+// ambill-releases so crash volume doesn't clutter license-request issues or
+// release assets, and so the WinForms client's crash-reporting PAT (see
+// ErrorReportingService.cs) is scoped narrowly to just this one small repo.
+const CRASH_REPO = "ambill-error-reports";
+const CRASH_API = `https://api.github.com/repos/${OWNER}/${CRASH_REPO}`;
 const TOKEN_KEY = "ambill_admin_pat";
 // GitHub Pages caches this document for up to 10 minutes (Cache-Control: max-age=600) — a
 // "this fix isn't working" report is, more often than not, someone looking at a cached copy
 // from before the fix shipped. Bumped on every deploy so that can be confirmed at a glance
 // (and told apart from a real bug) instead of re-diagnosed from scratch each time.
-const BUILD_TAG = "build 2026-09-15 13:05 UTC";
+const BUILD_TAG = "build 2026-09-17 12:01 UTC";
 document.getElementById("buildTag").textContent = "· " + BUILD_TAG;
 
 function escapeRegex(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
@@ -786,8 +898,8 @@ function customConfirm(message, opts) {
   });
 }
 
-async function gh(path, opts) {
-  const res = await fetch(API + path, {
+async function ghApi(base, path, opts) {
+  const res = await fetch(base + path, {
     ...opts,
     headers: {
       "Authorization": "token " + getToken(),
@@ -802,6 +914,8 @@ async function gh(path, opts) {
   }
   return res.status === 204 ? null : res.json();
 }
+function gh(path, opts) { return ghApi(API, path, opts); }
+function ghCrash(path, opts) { return ghApi(CRASH_API, path, opts); }
 
 // ── Token setup ──────────────────────────────────────────────────────────
 function showApp() {
@@ -810,6 +924,26 @@ function showApp() {
   document.getElementById("topbarAppActions").style.display = "flex";
   loadIssueList();
 }
+
+// ── View switching (License Requests vs Crash Reports) ─────────────────────
+// One token drives both tabs (see the updated token-setup instructions above);
+// switching tabs never re-prompts for auth, it just swaps which panel/dataset
+// is visible and lazy-loads the crash list the first time it's opened.
+let currentView = "license";
+let crashListLoadedOnce = false;
+function switchView(view) {
+  currentView = view;
+  document.getElementById("layoutRoot").classList.toggle("hidden", view !== "license");
+  document.getElementById("crashLayoutRoot").classList.toggle("hidden", view !== "crash");
+  document.getElementById("tabLicense").classList.toggle("tab-active", view === "license");
+  document.getElementById("tabCrash").classList.toggle("tab-active", view === "crash");
+  if (view === "crash" && !crashListLoadedOnce) {
+    crashListLoadedOnce = true;
+    loadCrashList();
+  }
+}
+document.getElementById("tabLicense").onclick = () => switchView("license");
+document.getElementById("tabCrash").onclick = () => switchView("crash");
 function showTokenSetup() {
   document.getElementById("tokenWrap").classList.remove("hidden");
   document.getElementById("app").classList.add("hidden");
@@ -1086,7 +1220,8 @@ document.getElementById("backBtn").onclick = () => {
   document.getElementById("layoutRoot").classList.remove("detail-open");
   renderIssueList();
 };
-document.getElementById("refreshBtn").onclick = () => loadIssueList(true);
+document.getElementById("refreshBtn").onclick = () =>
+  currentView === "crash" ? loadCrashList(true) : loadIssueList(true);
 // Mirrors the topbar Refresh button but lives inside the detail panel itself — on a phone,
 // with the request list hidden while a detail is open (see .detail-open above), the topbar
 // button can be a full scroll away. This one is always right there.
@@ -1474,6 +1609,248 @@ document.getElementById("commentBtn").onclick = async () => {
     toast("Comment failed: " + e.message, false);
   } finally {
     btn.disabled = false;
+  }
+};
+
+// ── Crash Reports (ambill-error-reports repo) ───────────────────────────────
+// Same "### Label\n\nvalue" body convention ErrorReportingService.cs writes
+// (see BillingApp's Helper\ErrorReportingService.cs) — getField/setField above
+// already parse that generically, reused as-is.
+let allCrashIssues = [];
+let selectedCrashNumber = null;
+let currentCrashEntry = null;
+let crashRenderGeneration = 0;
+
+function severityBadgeClass(sev) {
+  if (sev === "Fatal") return "badge-fatal";
+  if (sev === "Unobserved") return "badge-unobserved";
+  return "badge-recoverable";
+}
+function isIgnored(issue) {
+  return (issue.labels || []).some(l => (l.name || l) === "ignored");
+}
+function computeCrashStatus(entry) {
+  const { issue } = entry;
+  const body = issue.body || "";
+  if (isIgnored(issue)) return { label: "IGNORED", cls: "badge-ignored" };
+  if (issue.state === "closed") return { label: "CLOSED", cls: "badge-closed" };
+  const sev = getField(body, "Severity") || "Recoverable";
+  return { label: sev.toUpperCase(), cls: severityBadgeClass(sev) };
+}
+// Recurrences are posted as comments starting with "Seen again" (see
+// ErrorReportingService.CommentOnExistingIssueAsync) — the original issue
+// itself is occurrence #1.
+function countOccurrences(entry) {
+  const recurrences = (entry.comments || []).filter(c => (c.body || "").startsWith("Seen again")).length;
+  return 1 + recurrences;
+}
+
+async function loadCrashList(announceSuccess) {
+  const listEl = document.getElementById("crashIssueList");
+  const empty = document.getElementById("crashListEmpty");
+  const loading = document.getElementById("crashListLoading");
+  const myGen = ++crashRenderGeneration;
+  setRefreshBusy(true);
+  listEl.innerHTML = "";
+  empty.classList.add("hidden");
+  loading.classList.remove("hidden");
+  try {
+    const issues = await ghCrash(`/issues?labels=crash-report&state=all&per_page=100`);
+    const fetched = await Promise.all(issues.map(async issue => {
+      let comments = [];
+      try { comments = await ghCrash(`/issues/${issue.number}/comments?per_page=50`); } catch (e) {}
+      return { issue, comments };
+    }));
+    if (myGen !== crashRenderGeneration) return;
+    allCrashIssues = fetched;
+    renderCrashList();
+    if (selectedCrashNumber != null) {
+      const fresh = allCrashIssues.find(e => e.issue.number === selectedCrashNumber);
+      if (fresh) openCrashIssue(fresh);
+    }
+    if (announceSuccess) {
+      toast(`Updated — ${allCrashIssues.length} crash report${allCrashIssues.length === 1 ? "" : "s"} loaded.`, true);
+    }
+  } catch (e) {
+    if (myGen === crashRenderGeneration) toast("Could not load crash reports: " + e.message, false);
+  } finally {
+    if (myGen === crashRenderGeneration) {
+      loading.classList.add("hidden");
+      setRefreshBusy(false);
+    }
+  }
+}
+
+function renderCrashList() {
+  const listEl = document.getElementById("crashIssueList");
+  const empty = document.getElementById("crashListEmpty");
+  const stateF = document.getElementById("crashFltState").value;
+  const sevF = document.getElementById("crashFltSeverity").value;
+  const showIgnored = document.getElementById("crashShowIgnored").checked;
+  const searchF = document.getElementById("crashFltSearch").value.trim().toLowerCase();
+
+  listEl.innerHTML = "";
+  let shown = 0;
+
+  for (const entry of allCrashIssues) {
+    const { issue } = entry;
+    const body = issue.body || "";
+    if (!showIgnored && isIgnored(issue)) continue;
+    if (stateF !== "all" && issue.state !== stateF) continue;
+    const severity = getField(body, "Severity") || "Recoverable";
+    if (sevF !== "all" && severity !== sevF) continue;
+    const exceptionType = getField(body, "Exception Type") || "";
+    const message = getField(body, "Message") || "";
+    if (searchF && ![exceptionType, message].some(v => v.toLowerCase().includes(searchF))) continue;
+
+    shown++;
+    const status = computeCrashStatus(entry);
+    const occurrences = countOccurrences(entry);
+    const appVersion = getField(body, "App Version") || "?";
+    const li = document.createElement("li");
+    li.className = "issue-item" + (issue.number === selectedCrashNumber ? " selected" : "");
+    li.dataset.status = status.cls;
+    li.innerHTML = `<div class="row-between">
+        <div>
+          <div class="company">${escapeHtml(shortenExceptionType(exceptionType))}</div>
+          <div class="meta">${escapeHtml(truncateText(message, 90))}</div>
+          <div class="meta">#${issue.number} · v${escapeHtml(appVersion)} · seen ${occurrences}× · last ${new Date(entry.comments && entry.comments.length ? entry.comments[entry.comments.length - 1].created_at : issue.created_at).toLocaleDateString()}</div>
+        </div>
+        <span class="badge ${status.cls}">${status.label}</span>
+      </div>`;
+    li.onclick = () => openCrashIssue(entry);
+    listEl.appendChild(li);
+  }
+  empty.classList.toggle("hidden", shown > 0);
+}
+function shortenExceptionType(t) {
+  const parts = (t || "").split(".");
+  return parts.length ? parts[parts.length - 1] : t;
+}
+function truncateText(s, max) {
+  if (!s) return "";
+  return s.length > max ? s.slice(0, max) + "..." : s;
+}
+document.getElementById("crashFltState").onchange = renderCrashList;
+document.getElementById("crashFltSeverity").onchange = renderCrashList;
+document.getElementById("crashShowIgnored").onchange = renderCrashList;
+document.getElementById("crashFltSearch").oninput = renderCrashList;
+
+function openCrashIssue(entry) {
+  currentCrashEntry = entry;
+  selectedCrashNumber = entry.issue.number;
+  const { issue } = entry;
+  const body = issue.body || "";
+
+  document.getElementById("crashEmptyDetail").classList.add("hidden");
+  document.getElementById("crashFormCard").classList.remove("hidden");
+  document.getElementById("crashLayoutRoot").classList.add("detail-open");
+  renderCrashList();
+
+  const exceptionType = getField(body, "Exception Type") || "Unknown";
+  document.getElementById("crashFormTitle").textContent = `#${issue.number} — ${shortenExceptionType(exceptionType)}`;
+
+  const status = computeCrashStatus(entry);
+  const statePill = document.getElementById("crashFormStatePill");
+  statePill.textContent = status.label.toLowerCase();
+  statePill.className = "state-pill " + (isIgnored(issue) ? "ignored" : issue.state);
+
+  const occurrences = countOccurrences(entry);
+  document.getElementById("crashReadonlyBlock").innerHTML = `
+    <div class="rline"><b>Exception</b> ${escapeHtml(exceptionType)}</div>
+    <div class="rline"><b>Message</b> ${escapeHtml(getField(body, "Message"))}</div>
+    <div class="rline"><b>Severity</b> <span class="badge ${severityBadgeClass(getField(body, "Severity"))}">${escapeHtml(getField(body, "Severity") || "Recoverable")}</span></div>
+    <div class="rline"><b>App Version</b> ${escapeHtml(getField(body, "App Version"))}</div>
+    <div class="rline"><b>Device UID</b> ${escapeHtml(getField(body, "Device UID"))}</div>
+    <div class="rline"><b>Machine</b> ${escapeHtml(getField(body, "Machine Name"))}</div>
+    <div class="rline"><b>OS</b> ${escapeHtml(getField(body, "OS Version"))}</div>
+    ${getField(body, "Company") ? `<div class="rline"><b>Company</b> ${escapeHtml(getField(body, "Company"))}</div>` : ""}
+    <div class="rline"><b>First Seen</b> ${escapeHtml(getField(body, "First Seen (UTC)"))} UTC</div>
+    <div class="rline"><b>Occurrences</b> ${occurrences}×</div>`;
+
+  const stackMatch = body.match(/<summary>Stack Trace<\/summary>\s*\n\n```\n([\s\S]*?)\n```/);
+  document.getElementById("crashStackTrace").textContent = stackMatch ? stackMatch[1] : "(no stack trace captured)";
+
+  const historyEl = document.getElementById("crashHistoryList");
+  const recurrences = (entry.comments || []).filter(c => (c.body || "").startsWith("Seen again"));
+  historyEl.innerHTML = recurrences.length
+    ? recurrences.map(c => `
+        <div class="history-item">
+          <div class="hwhen">${new Date(c.created_at).toLocaleString()}</div>
+          <div>${escapeHtml(c.body || "")}</div>
+        </div>`).join("")
+    : `<div class="hint">No recurrences recorded yet — reported once so far.</div>`;
+
+  document.getElementById("crashGhLink").href =
+    `https://github.com/${OWNER}/${CRASH_REPO}/issues/${issue.number}`;
+
+  const ignored = isIgnored(issue);
+  document.getElementById("crashIgnoreBtn").classList.toggle("hidden", ignored);
+  document.getElementById("crashCloseBtn").classList.toggle("hidden", issue.state !== "open");
+  document.getElementById("crashReopenBtn").classList.toggle("hidden", issue.state !== "closed");
+}
+
+document.getElementById("crashBackBtn").onclick = () => {
+  selectedCrashNumber = null;
+  currentCrashEntry = null;
+  document.getElementById("crashFormCard").classList.add("hidden");
+  document.getElementById("crashEmptyDetail").classList.remove("hidden");
+  document.getElementById("crashLayoutRoot").classList.remove("detail-open");
+  renderCrashList();
+};
+document.getElementById("crashDetailRefreshBtn").onclick = () => loadCrashList(true);
+
+document.getElementById("crashIgnoreBtn").onclick = async () => {
+  const ok = await customConfirm(
+    `Mark crash report #${currentCrashEntry.issue.number} as ignored (known-benign/noise)? This closes it and hides it from the list by default.`,
+    { title: "Ignore Crash Report", confirmText: "Ignore & Close", kind: "warn" }
+  );
+  if (!ok) return;
+  const btn = document.getElementById("crashIgnoreBtn");
+  btn.disabled = true;
+  try {
+    const currentLabels = (currentCrashEntry.issue.labels || []).map(l => l.name || l);
+    const newLabels = currentLabels.includes("ignored") ? currentLabels : [...currentLabels, "ignored"];
+    await ghCrash(`/issues/${currentCrashEntry.issue.number}`, {
+      method: "PATCH",
+      body: JSON.stringify({ labels: newLabels, state: "closed" })
+    });
+    toast("Marked as ignored.", true);
+    loadCrashList();
+  } catch (e) {
+    toast("Ignore failed: " + e.message, false);
+  } finally {
+    btn.disabled = false;
+  }
+};
+
+document.getElementById("crashCloseBtn").onclick = async () => {
+  const ok = await customConfirm(
+    `Close crash report #${currentCrashEntry.issue.number} as fixed?`,
+    { title: "Close Crash Report", confirmText: "Close (fixed)", kind: "info" }
+  );
+  if (!ok) return;
+  try {
+    await ghCrash(`/issues/${currentCrashEntry.issue.number}`, { method: "PATCH", body: JSON.stringify({ state: "closed" }) });
+    toast("Crash report closed.", true);
+    loadCrashList();
+  } catch (e) {
+    toast("Close failed: " + e.message, false);
+  }
+};
+
+document.getElementById("crashReopenBtn").onclick = async () => {
+  try {
+    const currentLabels = (currentCrashEntry.issue.labels || []).map(l => l.name || l);
+    const newLabels = currentLabels.filter(l => l !== "ignored");
+    await ghCrash(`/issues/${currentCrashEntry.issue.number}`, {
+      method: "PATCH",
+      body: JSON.stringify({ state: "open", labels: newLabels })
+    });
+    toast("Crash report reopened.", true);
+    loadCrashList();
+  } catch (e) {
+    toast("Reopen failed: " + e.message, false);
   }
 };
 

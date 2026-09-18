@@ -1270,6 +1270,13 @@ document.getElementById("saveBtn").onclick = async () => {
   document.getElementById("saveHint").textContent = "Saving...";
   try {
     await saveFields();
+    // Re-render from the just-saved body (status badge, list badge, Mark-Paid visibility all
+    // read the body) AND re-fetch waiting runs (approveBtn depends on live GitHub state that
+    // Save itself doesn't touch, but staff routinely edit Payment Required right before
+    // approving — this is the point where they most need it current, not a separate manual
+    // Refresh click). openIssue() re-selects the saved hint text below, so re-run it last.
+    await loadWaitingRuns();
+    openIssue(currentEntry); // openIssue() already re-renders the list itself, no separate call needed
     toast(`Saved request #${currentEntry.issue.number}.`, true);
     document.getElementById("saveHint").textContent = "Saved ✓";
   } catch (e) {
@@ -1613,9 +1620,19 @@ document.getElementById("commentBtn").onclick = async () => {
   const btn = document.getElementById("commentBtn");
   btn.disabled = true;
   try {
-    await gh(`/issues/${currentEntry.issue.number}/comments`, { method: "POST", body: JSON.stringify({ body: text }) });
+    const newComment = await gh(`/issues/${currentEntry.issue.number}/comments`, { method: "POST", body: JSON.stringify({ body: text }) });
+    // The GitHub API call above is the only thing that actually posts it — everything below is
+    // just keeping the in-memory state (and therefore the visible UI) in sync with that, since
+    // nothing else here re-fetches comments automatically. Without this, a comment that's
+    // itself a pasted license string, or a payment-proof note, wouldn't be picked up by
+    // renderPaymentProof()/extractLicenseFromComments() until a manual refresh.
+    currentEntry.comments = [...(currentEntry.comments || []), newComment];
+    const idx = allIssues.findIndex(e => e.issue.number === currentEntry.issue.number);
+    if (idx >= 0) allIssues[idx].comments = currentEntry.comments;
+    currentEntry.license = extractLicenseFromComments(currentEntry.comments);
     toast("Comment posted.", true);
     document.getElementById("commentText").value = "";
+    openIssue(currentEntry);
   } catch (e) {
     toast("Comment failed: " + e.message, false);
   } finally {

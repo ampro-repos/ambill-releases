@@ -512,6 +512,9 @@
             <div id="paymentProofContent" style="border:1px solid var(--border); border-radius:9px; padding:12px; background:#fafbfc;"></div>
           </div>
 
+          <div class="section-title">📜 History</div>
+          <div id="historyList" style="margin-bottom: 16px;"></div>
+
           <div class="section-title">Request Details</div>
           <div class="field-grid">
             <div>
@@ -586,6 +589,7 @@
           <div class="actions-row">
             <button id="markPaidBtn" class="btn-primary hidden">✓ Mark Payment Received &amp; Release License</button>
             <button id="approveBtn" class="btn-teal">✓ Approve &amp; Sign Now</button>
+            <button id="extendBtn" class="btn-secondary hidden">🔄 Extend License</button>
             <button id="runPaymentCheckBtn" class="btn-secondary">↻ Run Payment Check Now</button>
             <button id="closeBtn" class="btn-secondary">✕ Close / Reject</button>
             <button id="reopenBtn" class="btn-secondary hidden">↺ Reopen Request</button>
@@ -737,11 +741,14 @@ function setField(body, label, value) {
   return body.replace(/\s*$/, "") + "\n\n### " + label + "\n\n" + value + "\n";
 }
 function extractLicenseFromComments(comments) {
+  // Last match, not first — an extended license posts a second fenced comment on the same
+  // issue, and the most recently issued one is always the one actually valid on the machine.
+  let found = null;
   for (const c of comments) {
     const m = (c.body || "").match(/```\s*\n([\s\S]*?)\n```/);
-    if (m) return m[1].trim();
+    if (m) found = m[1].trim();
   }
-  return null;
+  return found;
 }
 function renderPaymentProof(comments) {
   const box = document.getElementById("paymentProofBox");
@@ -776,6 +783,43 @@ function renderPaymentProof(comments) {
   }
   content.innerHTML = html;
   box.classList.remove("hidden");
+}
+// Every comment on the issue, oldest first, lightly classified by matching against the fixed
+// prefixes the workflows/client themselves post (see license-signing.yml, payment-verification.yml,
+// license-extend.yml, ActivateLicense.cs) — reuses the same .history-item card already built for
+// crash-report recurrences. Anything that doesn't match (a manual admin note) still renders, just
+// with a generic icon, so nothing from the raw comments API is ever silently dropped.
+function classifyHistoryComment(body) {
+  if (/^🔄 \*\*License extended/.test(body)) return { icon: "🔄", label: "License extended" };
+  if (/license has been approved|```/.test(body) && /BEGIN|-----|[A-Za-z0-9+/]{40,}/.test(body)) return { icon: "🔑", label: "License issued" };
+  if (/Customer submitted payment confirmation|Customer indicates payment was made/.test(body)) return { icon: "💳", label: "Payment submitted" };
+  if (/payment.*(required|link|pending)/i.test(body)) return { icon: "💰", label: "Payment required" };
+  if (/request (has been|was) received|new license request/i.test(body)) return { icon: "📩", label: "Request received" };
+  if (/revoked/i.test(body)) return { icon: "⛔", label: "Revoked" };
+  return { icon: "💬", label: "Comment" };
+}
+function renderHistory(comments) {
+  const box = document.getElementById("historyList");
+  if (!comments.length) {
+    box.innerHTML = `<div class="hint">No activity yet.</div>`;
+    return;
+  }
+  const sorted = [...comments].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+  box.innerHTML = sorted.map(c => {
+    const body = c.body || "";
+    const { icon, label } = classifyHistoryComment(body);
+    const when = c.created_at ? new Date(c.created_at).toLocaleString() : "";
+    // Fenced license blobs are already shown in full in the License box above — collapse them
+    // here to keep the timeline scannable instead of repeating a long opaque string per entry.
+    const preview = body.replace(/```[\s\S]*?```/g, "[license omitted — see above]").trim();
+    return `<div class="history-item">
+      <div class="row-between">
+        <div><b>${icon} ${escapeHtml(label)}</b></div>
+        <span class="hwhen">${escapeHtml(when)}</span>
+      </div>
+      <div style="white-space:pre-wrap; margin-top:4px;">${escapeHtml(preview)}</div>
+    </div>`;
+  }).join("");
 }
 function escapeHtml(s) {
   return (s || "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -1171,6 +1215,12 @@ function openIssue(entry) {
   }
 
   renderPaymentProof(entry.comments || []);
+  renderHistory(entry.comments || []);
+
+  const extendBtn = document.getElementById("extendBtn");
+  extendBtn.classList.toggle("hidden", !license);
+  extendBtn.disabled = false;
+  extendBtn.textContent = "🔄 Extend License";   // reset from "Extending..." etc.
 
   setSelectValue("fRequestType", getField(body, "Request Type") || "New Activation");
   const prevUid = getField(body, "Previous Machine ID (only if switching computers)");
@@ -1361,6 +1411,42 @@ document.getElementById("approveBtn").onclick = async () => {
   }
 };
 
+document.getElementById("extendBtn").onclick = async () => {
+  const issueNumber = currentEntry.issue.number;
+  const daysStr = window.prompt("Extend this license — new expiry, days from today:", "365");
+  if (daysStr === null) return;
+  const days = parseInt(daysStr, 10);
+  if (!Number.isFinite(days) || days <= 0) { toast("Enter a valid number of days.", false); return; }
+  const ok = await customConfirm(
+    `Issue a new license for this machine, expiring ${days} days from today? The previous license keeps working until then — this doesn't revoke anything.`,
+    { title: "Extend License", confirmText: "Extend License", kind: "info" }
+  );
+  if (!ok) return;
+  const btn = document.getElementById("extendBtn");
+  btn.disabled = true;
+  try {
+    const previousLicense = currentEntry.license;
+    const dispatchTime = Date.now();
+    await gh(`/actions/workflows/license-extend.yml/dispatches`, {
+      method: "POST",
+      body: JSON.stringify({ ref: "main", inputs: { issue_number: String(issueNumber), expiry_days: String(days) } })
+    });
+    btn.textContent = "⏳ Extending...";
+    toast("Extending the license now.", true);
+    // Same fire-and-forget run lookup markPaidBtn uses. Unlike that button, the issue here may
+    // already be closed WITH a license before this dispatch even runs, so "closed + has a
+    // license" alone isn't a valid success signal — pollForApprovalResult is told the previous
+    // license text so it keeps waiting until a genuinely NEW one shows up in the comments.
+    const runLookup = findRunAfterDispatch("license-extend.yml", dispatchTime);
+    await pollForApprovalResult(issueNumber, runLookup, previousLicense);
+    return;
+  } catch (e) {
+    toast("Could not extend the license: " + e.message, false);
+    btn.disabled = false;
+    btn.textContent = "🔄 Extend License";
+  }
+};
+
 async function fetchIssueEntry(number) {
   const issue = await gh(`/issues/${number}`);
   let comments = [];
@@ -1444,7 +1530,7 @@ function hideRunProgress() {
 // Whichever it is, once a run id is known, each attempt also fetches that run's job steps and
 // renders a GitHub-Actions-style progress bar + checklist, instead of leaving the admin
 // watching only a "checking again shortly (N/12)" counter with no sense of what's happening.
-async function pollForApprovalResult(issueNumber, runIdOrPromise) {
+async function pollForApprovalResult(issueNumber, runIdOrPromise, requireLicenseChangeFrom) {
   const approvalHint = document.getElementById("approvalHint");
   const originalBody = currentEntry.issue.body || "";
   const maxAttempts = 12;
@@ -1489,7 +1575,8 @@ async function pollForApprovalResult(issueNumber, runIdOrPromise) {
     // via the API — closed-but-no-license-yet is a brief transient, not "rejected". Keep
     // polling through it instead of finalizing on a false "CLOSED / REJECTED" read; a genuine
     // reject (via Close/Reject) doesn't go through this poll at all.
-    const closedWithLicense = fresh.issue.state !== "open" && fresh.license;
+    const closedWithLicense = fresh.issue.state !== "open" && fresh.license &&
+      (requireLicenseChangeFrom == null || fresh.license !== requireLicenseChangeFrom);
     const stillOpenButBodyChanged = fresh.issue.state === "open" && (fresh.issue.body || "") !== originalBody;
     if (closedWithLicense || stillOpenButBodyChanged) {
       const stillSelected = currentEntry && currentEntry.issue.number === issueNumber;
@@ -1499,7 +1586,9 @@ async function pollForApprovalResult(issueNumber, runIdOrPromise) {
       // completed checklist back so the admin sees a full green run, not just a toast, on the
       // exact result they were watching for.
       if (stillSelected && lastSteps) renderRunProgress(lastSteps);
-      toast(closedWithLicense ? "License signed and the request was closed." : "Payment link is ready.", true);
+      toast(closedWithLicense
+        ? (requireLicenseChangeFrom != null ? "License extended — new expiry posted to the request." : "License signed and the request was closed.")
+        : "Payment link is ready.", true);
       return;
     }
     renderIssueList();
@@ -1523,6 +1612,8 @@ async function pollForApprovalResult(issueNumber, runIdOrPromise) {
   document.getElementById("approveBtn").textContent = "✓ Approve & Sign Now";
   document.getElementById("markPaidBtn").disabled = false;
   document.getElementById("markPaidBtn").textContent = "✓ Mark Payment Received & Release License";
+  document.getElementById("extendBtn").disabled = false;
+  document.getElementById("extendBtn").textContent = "🔄 Extend License";
 }
 
 // Shown on a 403 approving a deployment. Two independent causes, both worth

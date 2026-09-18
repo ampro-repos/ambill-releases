@@ -792,9 +792,12 @@ function renderPaymentProof(comments) {
 function classifyHistoryComment(body) {
   if (/^🔄 \*\*License extended/.test(body)) return { icon: "🔄", label: "License extended" };
   if (/license has been approved|```/.test(body) && /BEGIN|-----|[A-Za-z0-9+/]{40,}/.test(body)) return { icon: "🔑", label: "License issued" };
+  // Anchored to the start — the initial auto-comment's own instructional text can otherwise
+  // false-match the "payment required" check below (it mentions "Payment Required/Amount" as
+  // one of the editable fields), so this must be checked before that one, not after.
+  if (/^request received\b/i.test(body)) return { icon: "📩", label: "Request received" };
   if (/Customer submitted payment confirmation|Customer indicates payment was made/.test(body)) return { icon: "💳", label: "Payment submitted" };
   if (/payment.*(required|link|pending)/i.test(body)) return { icon: "💰", label: "Payment required" };
-  if (/request (has been|was) received|new license request/i.test(body)) return { icon: "📩", label: "Request received" };
   if (/revoked/i.test(body)) return { icon: "⛔", label: "Revoked" };
   return { icon: "💬", label: "Comment" };
 }

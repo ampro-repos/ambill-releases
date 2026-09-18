@@ -1,0 +1,112 @@
+name: License Extend
+
+# Manually-triggered extension of an already-issued license for the same machine — from the
+# admin page's new "Extend License" button. Re-signs a brand-new AmbillLicense (LicenseSigningCLI
+# has no "resign" mode; a fresh CreateDateTime here is fine, consistent with how
+# payment-verification.yml already independently re-signs on its own schedule) with a new expiry
+# computed as TODAY + the given number of days — not stacked on the old expiry, so a renewal
+# always lands on a clean, predictable date regardless of exactly when it's applied.
+#
+# Deliberately dispatch-only rather than trying to make license-signing.yml refire on the same
+# issue — that workflow is scoped to `issues: opened` only and does not retrigger on reopen.
+on:
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: 'License request issue number to extend'
+        required: true
+      expiry_days:
+        description: 'New expiry, days from today'
+        required: true
+        default: '365'
+
+permissions:
+  issues: write
+
+jobs:
+  extend:
+    runs-on: windows-latest
+    # Same no-second-approval environment payment-verification.yml already uses — the trust
+    # boundary here is Ambill Support deliberately triggering this from the admin page, not a
+    # second human click on top of that (same reasoning that workflow's own comments already
+    # document for its own signing step).
+    environment: license-signing-auto
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Read issue fields
+        id: fields
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issueNumber = ${{ github.event.inputs.issue_number }};
+            const issue = await github.rest.issues.get({ ...context.repo, issue_number: issueNumber });
+            const body = issue.data.body || "";
+
+            // Same field() convention every other workflow in this repo already uses.
+            function field(label) {
+              const re = new RegExp("### " + label + "[ \\t]*\\r?\\n[ \\t]*\\r?\\n([^\\r\\n]*)");
+              const m = body.match(re);
+              return m ? m[1].trim() : "";
+            }
+
+            const machineUid = field("Machine ID");
+            if (!machineUid) {
+              core.setFailed(`Issue #${issueNumber} has no Machine ID field — is this a real license-request issue?`);
+              return;
+            }
+
+            core.setOutput('machine_uid', machineUid);
+            core.setOutput('product', field("Product") || "ambill");
+            core.setOutput('is_trial', field("Requested License Type").trim().toLowerCase() === 'trial' ? 'true' : 'false');
+
+      - name: Sign extended license
+        id: sign
+        env:
+          LICENSE_SIGNING_PFX_BASE64: ${{ secrets.LICENSE_SIGNING_PFX_BASE64 }}
+          LICENSE_SIGNING_PFX_PASSWORD: ${{ secrets.LICENSE_SIGNING_PFX_PASSWORD }}
+        shell: pwsh
+        run: |
+          $exe = "tools\LicenseSigningCLI\LicenseSigningCLI.exe"
+          $cliArgs = @("--uid", "${{ steps.fields.outputs.machine_uid }}", "--appname", "${{ steps.fields.outputs.product }}", "--expiry-days", "${{ github.event.inputs.expiry_days }}")
+          if ("${{ steps.fields.outputs.is_trial }}" -eq "true") { $cliArgs += "--trial" }
+
+          $licenseString = & $exe @cliArgs
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Signing failed: $licenseString"
+            exit 1
+          }
+
+          # LicenseSigningCLI computes ExpiryDateTime internally but never outputs it — recompute
+          # the same way here (today UTC + expiry-days) purely so the comment below can state it
+          # in readable text. This is also what closes the "no readable expiry anywhere on
+          # GitHub" gap: today, the ONLY place the real expiry exists is inside the opaque
+          # signed blob.
+          $newExpiry = (Get-Date).ToUniversalTime().AddDays([int]"${{ github.event.inputs.expiry_days }}").ToString("yyyy-MM-dd")
+
+          # GITHUB_OUTPUT, not the log, so the license string itself is never printed anywhere —
+          # same reasoning as the other two workflows' signing steps.
+          "license_string=$licenseString" >> $env:GITHUB_OUTPUT
+          "new_expiry=$newExpiry" >> $env:GITHUB_OUTPUT
+
+      - name: Post extended license and close
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issueNumber = ${{ github.event.inputs.issue_number }};
+            const licenseString = `${{ steps.sign.outputs.license_string }}`;
+            const newExpiry = `${{ steps.sign.outputs.new_expiry }}`;
+
+            await github.rest.issues.createComment({
+              ...context.repo,
+              issue_number: issueNumber,
+              body: "🔄 **License extended.** New expiry: **" + newExpiry + " (UTC)**.\n\n```\n" + licenseString + "\n```\n\n" +
+                "Paste this into the ambill Activate License screen if it doesn't fill in automatically — or the app will pick it up automatically next time it checks (reinstall, expiry, or next year's install)."
+            });
+
+            await github.rest.issues.update({
+              ...context.repo,
+              issue_number: issueNumber,
+              state: 'closed'
+            });

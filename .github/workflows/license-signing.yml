@@ -99,6 +99,25 @@ jobs:
               });
             }
 
+            // A uid:<hash> label lets the app itself (and this repo's own tooling) find every
+            // issue tied to a given machine via the regular issues-list endpoint
+            // (?labels=uid:<hash>) — the same fp:<hash> dedup technique already used by the
+            // ambill-error-reports crash-reporting pipeline, not the far tighter Search API.
+            // This is what lets the client recover an already-issued license after a reinstall,
+            // and lets it silently pick up a later renewal/extension of the same machine's
+            // license without filing a new request each time. Added here (not by the client at
+            // creation) so every issue gets one regardless of how it was created — the app's
+            // raw POST or a manually-filed one via the web form — and so it's computed once,
+            // consistently, in the one place server-side that already normalizes every issue.
+            const crypto = require('crypto');
+            const uidHash = crypto.createHash('sha256').update(machineUid).digest('hex').slice(0, 8);
+            const uidLabel = `uid:${uidHash}`;
+            await github.rest.issues.addLabels({
+              ...context.repo,
+              issue_number: context.issue.number,
+              labels: [uidLabel]
+            });
+
             core.setOutput('company_name', companyName);
             core.setOutput('machine_uid', machineUid);
 

@@ -22,6 +22,8 @@ on:
 
 permissions:
   issues: write
+  contents: read   # actions/checkout — works today regardless since the repo is public, but
+                   # explicit here (matching the other two workflows) rather than relying on that
 
 jobs:
   extend:

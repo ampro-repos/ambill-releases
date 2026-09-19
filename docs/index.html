@@ -1775,6 +1775,13 @@ function countOccurrences(entry) {
 // lazy-loaded (see crashListLoadedOnce) the first time they're needed, whether
 // that's opening the Crash Reports tab OR opening a license request — either
 // one triggers the one-time bulk fetch below.
+// Paginated — a machine that crashes a lot can accumulate dozens of reports, and this
+// section sits inside the license detail panel where unbounded growth would push the
+// actual request fields further and further down the page.
+const CRASH_HISTORY_PAGE_SIZE = 5;
+let _machineCrashMatches = [];
+let _machineCrashPage = 0;
+
 async function renderLicenseCrashSection(machineUid, forIssueNumber) {
   const container = document.getElementById("licenseCrashList");
   if (!machineUid) {
@@ -1790,12 +1797,25 @@ async function renderLicenseCrashSection(machineUid, forIssueNumber) {
   // still in flight — don't overwrite whatever's now actually showing.
   if (!currentEntry || currentEntry.issue.number !== forIssueNumber) return;
 
-  const matches = allCrashIssues.filter(e => getField(e.issue.body || "", "Device UID") === machineUid);
+  _machineCrashMatches = allCrashIssues.filter(e => getField(e.issue.body || "", "Device UID") === machineUid);
+  _machineCrashPage = 0;
+  renderCrashHistoryPage();
+}
+
+function renderCrashHistoryPage() {
+  const container = document.getElementById("licenseCrashList");
+  const matches = _machineCrashMatches;
   if (!matches.length) {
     container.innerHTML = `<div class="hint">No crash reports from this machine.</div>`;
     return;
   }
-  container.innerHTML = matches.map(entry => {
+
+  const totalPages = Math.max(1, Math.ceil(matches.length / CRASH_HISTORY_PAGE_SIZE));
+  _machineCrashPage = Math.max(0, Math.min(_machineCrashPage, totalPages - 1));
+  const start = _machineCrashPage * CRASH_HISTORY_PAGE_SIZE;
+  const pageItems = matches.slice(start, start + CRASH_HISTORY_PAGE_SIZE);
+
+  const itemsHtml = pageItems.map(entry => {
     const eBody = entry.issue.body || "";
     const status = computeCrashStatus(entry);
     const exceptionType = getField(eBody, "Exception Type") || "Unknown";
@@ -1806,10 +1826,35 @@ async function renderLicenseCrashSection(machineUid, forIssueNumber) {
         <span class="badge ${status.cls}">${status.label}</span>
       </div>
       <div class="hwhen">#${entry.issue.number} · seen ${occurrences}× ·
+        <a class="gh-link" href="#" onclick="viewCrashDetailsFromLicense(${entry.issue.number}); return false;">View Details →</a> ·
         <a class="gh-link" href="https://github.com/${OWNER}/${CRASH_REPO}/issues/${entry.issue.number}" target="_blank">View on GitHub →</a>
       </div>
     </div>`;
   }).join("");
+
+  const pagerHtml = totalPages <= 1 ? "" : `
+    <div class="row-between" style="margin-top:6px;">
+      <button class="btn-secondary" style="padding:4px 10px; font-size:12px;" onclick="changeCrashHistoryPage(-1)" ${_machineCrashPage === 0 ? "disabled" : ""}>← Prev</button>
+      <span class="hint">Page ${_machineCrashPage + 1} of ${totalPages} (${matches.length} total)</span>
+      <button class="btn-secondary" style="padding:4px 10px; font-size:12px;" onclick="changeCrashHistoryPage(1)" ${_machineCrashPage >= totalPages - 1 ? "disabled" : ""}>Next →</button>
+    </div>`;
+
+  container.innerHTML = itemsHtml + pagerHtml;
+}
+
+function changeCrashHistoryPage(delta) {
+  _machineCrashPage += delta;
+  renderCrashHistoryPage();
+}
+
+// "View Details" jumps to the Crash Reports tab and opens this exact issue there, instead
+// of leaving GitHub as the only way to see the full report (repro steps, stack trace,
+// comment history) from the license page.
+function viewCrashDetailsFromLicense(crashIssueNumber) {
+  const entry = allCrashIssues.find(e => e.issue.number === crashIssueNumber);
+  if (!entry) { toast("Crash report not loaded yet — try Refresh.", false); return; }
+  switchView("crash");
+  openCrashIssue(entry);
 }
 
 async function loadCrashList(announceSuccess) {

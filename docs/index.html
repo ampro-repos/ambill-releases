@@ -629,6 +629,10 @@
             <option value="Recoverable">Recoverable</option>
             <option value="Unobserved">Unobserved</option>
           </select>
+          <div style="display:flex; gap:8px;">
+            <input type="date" id="crashFltFromDate" title="From date" style="flex:1;">
+            <input type="date" id="crashFltToDate" title="To date" style="flex:1;">
+          </div>
           <label style="display:flex; align-items:center; gap:6px; font-weight:500; margin-top:2px; cursor:pointer;">
             <input type="checkbox" id="crashShowIgnored" style="width:auto;"> Show ignored
           </label>
@@ -995,6 +999,7 @@ function switchView(view) {
   document.getElementById("tabCrash").classList.toggle("tab-active", view === "crash");
   if (view === "crash" && !crashListLoadedOnce) {
     crashListLoadedOnce = true;
+    initCrashDateFilterDefaults();
     loadCrashList();
   }
 }
@@ -1900,6 +1905,8 @@ function renderCrashList() {
   const sevF = document.getElementById("crashFltSeverity").value;
   const showIgnored = document.getElementById("crashShowIgnored").checked;
   const searchF = document.getElementById("crashFltSearch").value.trim().toLowerCase();
+  const fromF = document.getElementById("crashFltFromDate").value;
+  const toF = document.getElementById("crashFltToDate").value;
 
   listEl.innerHTML = "";
   let shown = 0;
@@ -1914,11 +1921,24 @@ function renderCrashList() {
     const exceptionType = getField(body, "Exception Type") || "";
     const message = getField(body, "Message") || "";
     if (searchF && ![exceptionType, message].some(v => v.toLowerCase().includes(searchF))) continue;
+    // Date range filters by when the crash was first reported (issue.created_at) — an empty
+    // from/to means that end is unbounded, so clearing a field shows everything before/after.
+    if (fromF || toF) {
+      const created = new Date(issue.created_at);
+      if (fromF && created < new Date(fromF + "T00:00:00")) continue;
+      if (toF && created > new Date(toF + "T23:59:59.999")) continue;
+    }
 
     shown++;
     const status = computeCrashStatus(entry);
     const occurrences = countOccurrences(entry);
     const appVersion = getField(body, "App Version") || "?";
+    const machineName = getField(body, "Machine Name") || "";
+    const company = getField(body, "Company") || "";
+    const whoLine = [company, machineName].filter(Boolean).join(" · ");
+    const lastSeenIso = entry.comments && entry.comments.length
+      ? entry.comments[entry.comments.length - 1].created_at
+      : issue.created_at;
     const li = document.createElement("li");
     li.className = "issue-item" + (issue.number === selectedCrashNumber ? " selected" : "");
     li.dataset.status = status.cls;
@@ -1926,7 +1946,8 @@ function renderCrashList() {
         <div>
           <div class="company">${escapeHtml(shortenExceptionType(exceptionType))}</div>
           <div class="meta">${escapeHtml(truncateText(message, 90))}</div>
-          <div class="meta">#${issue.number} · v${escapeHtml(appVersion)} · seen ${occurrences}× · last ${new Date(entry.comments && entry.comments.length ? entry.comments[entry.comments.length - 1].created_at : issue.created_at).toLocaleDateString()}</div>
+          <div class="meta">#${issue.number} · v${escapeHtml(appVersion)} · seen ${occurrences}×</div>
+          <div class="meta">${whoLine ? escapeHtml(whoLine) + " · " : ""}reported ${new Date(issue.created_at).toLocaleString()}${occurrences > 1 ? " · last " + new Date(lastSeenIso).toLocaleString() : ""}</div>
         </div>
         <span class="badge ${status.cls}">${status.label}</span>
       </div>`;
@@ -1934,6 +1955,18 @@ function renderCrashList() {
     listEl.appendChild(li);
   }
   empty.classList.toggle("hidden", shown > 0);
+}
+// Defaults the date filters to the last 7 days (today back one week) — set once, the first
+// time the Crash Reports tab opens, so switching tabs and coming back doesn't stomp on
+// whatever range the admin has since picked. Uses local date parts, not toISOString() (which
+// is UTC and would show yesterday's date for part of the day in IST).
+function initCrashDateFilterDefaults() {
+  const fmt = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const to = new Date();
+  const from = new Date();
+  from.setDate(from.getDate() - 7);
+  document.getElementById("crashFltToDate").value = fmt(to);
+  document.getElementById("crashFltFromDate").value = fmt(from);
 }
 function shortenExceptionType(t) {
   const parts = (t || "").split(".");
@@ -1947,6 +1980,8 @@ document.getElementById("crashFltState").onchange = renderCrashList;
 document.getElementById("crashFltSeverity").onchange = renderCrashList;
 document.getElementById("crashShowIgnored").onchange = renderCrashList;
 document.getElementById("crashFltSearch").oninput = renderCrashList;
+document.getElementById("crashFltFromDate").onchange = renderCrashList;
+document.getElementById("crashFltToDate").onchange = renderCrashList;
 
 function openCrashIssue(entry) {
   currentCrashEntry = entry;

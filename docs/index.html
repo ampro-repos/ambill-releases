@@ -1825,12 +1825,17 @@ function renderCrashHistoryPage() {
     const status = computeCrashStatus(entry);
     const exceptionType = getField(eBody, "Exception Type") || "Unknown";
     const occurrences = countOccurrences(entry);
+    // Same "reported <datetime>" (+ "last <datetime>" once it's recurred) the main Crash
+    // Reports list shows — this section never got that when pagination was added here.
+    const lastSeenIso = entry.comments && entry.comments.length
+      ? entry.comments[entry.comments.length - 1].created_at
+      : entry.issue.created_at;
     return `<div class="history-item">
       <div class="row-between">
         <div><b>${escapeHtml(shortenExceptionType(exceptionType))}</b></div>
         <span class="badge ${status.cls}">${status.label}</span>
       </div>
-      <div class="hwhen">#${entry.issue.number} · seen ${occurrences}× ·
+      <div class="hwhen">#${entry.issue.number} · seen ${occurrences}× · reported ${new Date(entry.issue.created_at).toLocaleString()}${occurrences > 1 ? " · last " + new Date(lastSeenIso).toLocaleString() : ""} ·
         <a class="gh-link" href="#" onclick="viewCrashDetailsFromLicense(${entry.issue.number}); return false;">View Details →</a> ·
         <a class="gh-link" href="https://github.com/${OWNER}/${CRASH_REPO}/issues/${entry.issue.number}" target="_blank">View on GitHub →</a>
       </div>

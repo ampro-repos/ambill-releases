@@ -403,6 +403,7 @@
     <div class="tab-strip" id="viewTabs">
       <button class="btn-ghost-dark tab-btn tab-active" id="tabLicense" data-view="license">📋 License Requests</button>
       <button class="btn-ghost-dark tab-btn" id="tabCrash" data-view="crash">🐞 Crash Reports</button>
+      <button class="btn-ghost-dark tab-btn" id="tabReleases" data-view="releases">🚀 Releases</button>
     </div>
     <button class="btn-ghost-dark" id="refreshBtn">↻ Refresh</button>
     <button class="btn-ghost-dark" id="changeTokenBtn">Change token</button>
@@ -410,7 +411,9 @@
          checkbox, release-notes box) rather than embedding a trigger here — that would need
          this page's admin token to also reach into ampro-apps (the private source repo), a
          real widening of what a leaked/overbroad token could do, for a form GitHub already
-         renders for free. See publish-release.yml's own header comment. -->
+         renders for free. See publish-release.yml's own header comment. Also shown inside the
+         Releases tab itself now, next to what's actually published — this topbar copy stays too
+         since it's reachable from every tab. -->
     <a class="btn-link" href="https://github.com/ampro-repos/ampro-apps/actions/workflows/publish-release.yml" target="_blank">🚀 Publish Update →</a>
     <a class="btn-link" href="https://github.com/ampro-repos/ambill-releases/actions" target="_blank">Actions tab →</a>
     <a class="btn-link" href="https://github.com/ampro-repos/ambill-releases/issues" target="_blank">Issues tab →</a>
@@ -693,6 +696,28 @@
       </div>
     </div>
 
+  </div>
+</div>
+
+<div class="layout hidden" id="releasesLayoutRoot">
+  <div class="panel" id="releasesListCard" style="grid-column: 1 / -1;">
+    <div class="panel-header">
+      <div class="panel-title">Published Releases</div>
+      <div class="hint" style="margin-top:-2px;">
+        What the auto-updater on every install actually sees — reads GitHub Releases on
+        ambill-releases directly, same token as the other tabs.
+        <a class="btn-link" href="https://github.com/ampro-repos/ampro-apps/actions/workflows/publish-release.yml" target="_blank" style="padding:0; margin-left:4px;">🚀 Publish new update →</a>
+      </div>
+    </div>
+    <div class="panel-body">
+      <div id="releasesLoading" class="spinner"></div>
+      <div id="releasesList"></div>
+      <div id="releasesEmpty" class="empty-state hidden">
+        <div class="icon">📦</div>
+        <h3>No releases published yet</h3>
+        <p>Use "Publish new update" above to build and ship the first one — installs won't see any auto-update until then.</p>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -991,20 +1016,28 @@ function showApp() {
 // is visible and lazy-loads the crash list the first time it's opened.
 let currentView = "license";
 let crashListLoadedOnce = false;
+let releasesListLoadedOnce = false;
 function switchView(view) {
   currentView = view;
   document.getElementById("layoutRoot").classList.toggle("hidden", view !== "license");
   document.getElementById("crashLayoutRoot").classList.toggle("hidden", view !== "crash");
+  document.getElementById("releasesLayoutRoot").classList.toggle("hidden", view !== "releases");
   document.getElementById("tabLicense").classList.toggle("tab-active", view === "license");
   document.getElementById("tabCrash").classList.toggle("tab-active", view === "crash");
+  document.getElementById("tabReleases").classList.toggle("tab-active", view === "releases");
   if (view === "crash" && !crashListLoadedOnce) {
     crashListLoadedOnce = true;
     initCrashDateFilterDefaults();
     loadCrashList();
   }
+  if (view === "releases" && !releasesListLoadedOnce) {
+    releasesListLoadedOnce = true;
+    loadReleasesList();
+  }
 }
 document.getElementById("tabLicense").onclick = () => switchView("license");
 document.getElementById("tabCrash").onclick = () => switchView("crash");
+document.getElementById("tabReleases").onclick = () => switchView("releases");
 function showTokenSetup() {
   document.getElementById("tokenWrap").classList.remove("hidden");
   document.getElementById("app").classList.add("hidden");
@@ -1289,8 +1322,11 @@ document.getElementById("backBtn").onclick = () => {
   document.getElementById("layoutRoot").classList.remove("detail-open");
   renderIssueList();
 };
-document.getElementById("refreshBtn").onclick = () =>
-  currentView === "crash" ? loadCrashList(true) : loadIssueList(true);
+document.getElementById("refreshBtn").onclick = () => {
+  if (currentView === "crash") loadCrashList(true);
+  else if (currentView === "releases") loadReleasesList(true);
+  else loadIssueList(true);
+};
 // Mirrors the topbar Refresh button but lives inside the detail panel itself — on a phone,
 // with the request list hidden while a detail is open (see .detail-open above), the topbar
 // button can be a full scroll away. This one is always right there.
@@ -1987,6 +2023,74 @@ document.getElementById("crashShowIgnored").onchange = renderCrashList;
 document.getElementById("crashFltSearch").oninput = renderCrashList;
 document.getElementById("crashFltFromDate").onchange = renderCrashList;
 document.getElementById("crashFltToDate").onchange = renderCrashList;
+
+// ── Releases tab — what the Velopack auto-updater on every install actually reads ──────────
+// GitHub Releases on this same repo (ambill-releases), published by publish-release.yml /
+// Package_Velopack_Release.ps1 via `vpk upload github --publish`. Same token/API base (gh())
+// the License Requests tab already uses — reading Releases needs nothing extra.
+let allReleases = [];
+
+async function loadReleasesList(announceSuccess) {
+  const loading = document.getElementById("releasesLoading");
+  const listEl = document.getElementById("releasesList");
+  const empty = document.getElementById("releasesEmpty");
+  setRefreshBusy(true);
+  listEl.innerHTML = "";
+  empty.classList.add("hidden");
+  loading.classList.remove("hidden");
+  try {
+    allReleases = await gh(`/releases?per_page=30`);
+    renderReleasesList();
+    if (announceSuccess) {
+      toast(`Updated — ${allReleases.length} release${allReleases.length === 1 ? "" : "s"} loaded.`, true);
+    }
+  } catch (e) {
+    toast("Could not load releases: " + e.message, false);
+  } finally {
+    loading.classList.add("hidden");
+    setRefreshBusy(false);
+  }
+}
+
+function renderReleasesList() {
+  const listEl = document.getElementById("releasesList");
+  const empty = document.getElementById("releasesEmpty");
+  if (!allReleases.length) {
+    listEl.innerHTML = "";
+    empty.classList.remove("hidden");
+    return;
+  }
+  empty.classList.add("hidden");
+  // Package_Velopack_Release.ps1 / publish-release.yml write "<!-- MANDATORY -->" as the
+  // first line of the release notes it hands to `vpk pack --releaseNotes` whenever the admin
+  // checks Mandatory — vpk carries that into the GitHub release body, and
+  // Helper/AppUpdateService.cs greps for the same marker client-side. Strip it before
+  // displaying the notes text, same as the client already treats it as invisible.
+  listEl.innerHTML = allReleases.map((r, idx) => {
+    const isLatest = idx === 0 && !r.draft && !r.prerelease;
+    const body = r.body || "";
+    const mandatory = body.includes("<!-- MANDATORY -->");
+    const notes = body.replace("<!-- MANDATORY -->", "").trim();
+    const totalDownloads = (r.assets || []).reduce((sum, a) => sum + (a.download_count || 0), 0);
+    const publishedAt = r.published_at ? new Date(r.published_at).toLocaleString() : "(not published — draft)";
+    const badge = (text, bg, fg) =>
+      `<span class="badge" style="background:${bg}; color:${fg}; margin-left:6px;">${text}</span>`;
+    return `<div class="history-item" style="margin-bottom:12px;">
+      <div class="row-between">
+        <div>
+          <b style="font-size:15px;">${escapeHtml(r.name || r.tag_name)}</b>
+          ${isLatest ? badge("LATEST", "#e0edff", "#1d5fd6") : ""}
+          ${mandatory ? badge("MANDATORY", "var(--danger-bg)", "var(--danger)") : ""}
+          ${r.draft ? badge("DRAFT", "#f1f3f5", "#64748b") : ""}
+          ${r.prerelease ? badge("PRE-RELEASE", "#fff4d6", "#a3720a") : ""}
+        </div>
+        <a class="gh-link" href="${r.html_url}" target="_blank">View on GitHub →</a>
+      </div>
+      <div class="hwhen" style="margin-top:4px;">${escapeHtml(r.tag_name)} · published ${publishedAt} · ${totalDownloads} download${totalDownloads === 1 ? "" : "s"}</div>
+      ${notes ? `<div style="margin-top:8px; font-size:13px; white-space:pre-wrap;">${escapeHtml(notes)}</div>` : ""}
+    </div>`;
+  }).join("");
+}
 
 function openCrashIssue(entry) {
   currentCrashEntry = entry;

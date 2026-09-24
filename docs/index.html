@@ -160,6 +160,7 @@
     flex-wrap: wrap;
     gap: 12px;
     box-shadow: 0 2px 10px rgba(0,0,0,.15);
+    position: relative;
   }
   .brand { display: flex; align-items: center; gap: 10px; }
   /* The real applogo.png (Images/amprologo.png) used in every form's header panel across
@@ -169,8 +170,12 @@
   .brand h1 { font-size: 15px; font-weight: 700; margin: 0; letter-spacing: .01em; color: #cfe3ea; }
   .brand .tagline { font-size: 12px; color: #a9c3d4; margin-top: 1px; }
   .topbar-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-  /* ☀️/🌙 theme toggle — cycles Auto → Light → Dark → Auto, wired in the main script. */
-  #themeToggleBtn { font-size: 12.5px; }
+  /* ☀️/🌙 theme toggle — cycles Auto → Light → Dark → Auto, wired in the main script.
+     Absolutely positioned against .topbar (not a flex child of .brand or #topbarAppActions)
+     so it stays put and visible on the token-setup screen too, before #topbarAppActions
+     ever un-hides — theme is a page-level preference, not an authenticated-app-only one. */
+  #themeToggleBtn { font-size: 12.5px; position: absolute; top: 14px; right: 20px; z-index: 2; }
+  @media (max-width: 640px) { #themeToggleBtn { top: 10px; right: 12px; } }
 
   /* ── Buttons ── */
   button {
@@ -512,14 +517,17 @@
       <div class="tagline">Review, edit, approve &amp; manage license requests <span id="buildTag" style="opacity:.55;"></span></div>
     </div>
   </div>
+  <!-- position:absolute (see .topbar's own position:relative), not a flex child of either
+       .brand or #topbarAppActions — theme is a page-level preference, so this needs to stay
+       visible on the token-setup screen too, before #topbarAppActions ever un-hides. Text/icon
+       set by ambillApplyTheme() in the main script; cycles Auto → Light → Dark. -->
+  <button class="btn-ghost-dark" id="themeToggleBtn" title="Toggle theme (Auto / Light / Dark)">🌙 Auto</button>
   <div class="topbar-actions" id="topbarAppActions" style="display:none;">
     <div class="tab-strip" id="viewTabs">
       <button class="btn-ghost-dark tab-btn tab-active" id="tabLicense" data-view="license">📋 License Requests</button>
       <button class="btn-ghost-dark tab-btn" id="tabCrash" data-view="crash">🐞 Crash Reports</button>
       <button class="btn-ghost-dark tab-btn" id="tabReleases" data-view="releases">🚀 Releases</button>
     </div>
-    <!-- Text/icon set by ambillApplyTheme() in the main script; cycles Auto → Light → Dark. -->
-    <button class="btn-ghost-dark" id="themeToggleBtn" title="Toggle theme (Auto / Light / Dark)">🌙 Auto</button>
     <button class="btn-ghost-dark" id="refreshBtn">↻ Refresh</button>
     <button class="btn-ghost-dark" id="changeTokenBtn">Change token</button>
     <!-- Links straight to GitHub's own native workflow-dispatch form (version box, Mandatory

@@ -405,14 +405,53 @@
   .run-step.step-pending { color: var(--muted-2); }
   @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .55; transform: scale(.85); } }
 
+  /* ── Summary "profile card" (readonlyBlock / crashReadonlyBlock) — a responsive stat grid,
+     label-over-value per field, replacing the old flat "**Label** value" lines. Built by the
+     statCell() helper in the main script; .full spans the whole card width (long/identifying
+     values — messages, UIDs, exception names), everything else packs into the grid. A thin
+     accent bar on the left, colored via --accent (set per open/closed state alongside the
+     existing state-pill class toggle — see openIssue()/openCrashIssue()), gives the card an
+     at-a-glance status read before anyone reads a word of it. ── */
   .readonly-block {
-    background: linear-gradient(180deg, var(--surface-3), var(--surface-2));
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 13px 22px;
+    background: var(--surface-3);
     border: 1px solid var(--border);
-    border-radius: 9px; padding: 13px 15px; margin-bottom: 16px; font-size: 13.5px;
+    border-left: 3px solid var(--accent, var(--teal));
+    border-radius: 10px;
+    padding: 16px 18px;
+    margin-bottom: 16px;
+    transition: background-color .35s ease, border-color .35s ease;
   }
-  .readonly-block .rline { display: flex; gap: 6px; margin-bottom: 5px; }
-  .readonly-block .rline:last-child { margin-bottom: 0; }
-  .readonly-block b { color: var(--navy); min-width: 78px; display: inline-block; }
+  .readonly-block .stat { min-width: 0; }
+  .readonly-block .stat.full { grid-column: 1 / -1; }
+  .readonly-block .stat-label {
+    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+    color: var(--muted); margin-bottom: 3px;
+  }
+  .readonly-block .stat-value {
+    font-size: 14px; font-weight: 600; color: var(--text); line-height: 1.4;
+    overflow-wrap: break-word;
+  }
+  .readonly-block .stat-value.mono {
+    font-family: "JetBrains Mono", Consolas, monospace; font-size: 12px; font-weight: 500;
+  }
+
+  /* ── Detail-view section cards — wraps the content under each .section-title so a long
+     detail panel reads as a set of distinct, scannable blocks instead of one flat scroll
+     with only a thin divider line between sections. ── */
+  .detail-card {
+    background: var(--surface-3);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+    transition: background-color .35s ease, border-color .35s ease;
+  }
+  .detail-card:last-child { margin-bottom: 0; }
+  .detail-card > *:first-child { margin-top: 0; }
+  .detail-card > *:last-child { margin-bottom: 0; }
 
   a.gh-link { color: var(--teal); font-weight: 600; text-decoration: none; }
   a.gh-link:hover { text-decoration: underline; }
@@ -625,110 +664,120 @@
 
           <div id="readonlyBlock" class="readonly-block"></div>
 
-          <div class="section-title">Crash Reports (this machine)</div>
-          <div id="licenseCrashList" style="margin-bottom: 16px;"><div class="hint">Loading…</div></div>
+          <div class="detail-card">
+            <div class="section-title">Crash Reports (this machine)</div>
+            <div id="licenseCrashList" style="margin-bottom: 0;"><div class="hint">Loading…</div></div>
+          </div>
 
-          <div id="licenseBox" class="hidden">
+          <div id="licenseBox" class="hidden detail-card">
             <div class="hint" style="margin-bottom:6px;">Signed license</div>
             <div id="licenseText" class="license-box"></div>
           </div>
 
-          <div id="paymentProofBox" class="hidden" style="margin-bottom:16px;">
+          <div id="paymentProofBox" class="hidden detail-card">
             <div class="hint" style="margin-bottom:6px;">Customer's payment submission</div>
             <div id="paymentProofContent" style="border:1px solid var(--border); border-radius:9px; padding:12px; background:var(--surface-4);"></div>
           </div>
 
-          <div class="section-title">📜 History</div>
-          <div id="historyList" style="margin-bottom: 16px;"></div>
+          <div class="detail-card">
+            <div class="section-title">📜 History</div>
+            <div id="historyList" style="margin-bottom: 0;"></div>
+          </div>
 
-          <div class="section-title">Request Details</div>
-          <div class="field-grid">
-            <div>
-              <label>Request Type</label>
-              <select id="fRequestType">
-                <option>New Activation</option>
-                <option>Renewal</option>
-                <option>Switched Computer</option>
-              </select>
-            </div>
-            <div style="position:relative;">
-              <label>Previous Machine ID (only if switching)</label>
-              <div class="dropdown-input">
-                <input type="text" id="fPreviousUid" placeholder="Search company or paste UID..." autocomplete="off">
-                <svg class="dropdown-chevron" width="11" height="7" viewBox="0 0 11 7" fill="none"><path d="M1 1l4.5 4.5L10 1" stroke="#94a3b8" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              </div>
-              <div id="prevUidSuggestions" class="autocomplete-list hidden"></div>
-              <div id="prevUidFromHint" class="hint hidden"></div>
-            </div>
-
-            <div>
-              <label>Product</label>
-              <select id="fProduct">
-                <option value="ambill">ambill</option>
-                <option value="amfreezer">amfreezer</option>
-              </select>
-            </div>
-            <div>
-              <label>License Type</label>
-              <select id="fLicenseType">
-                <option>Paid</option>
-                <option>Trial</option>
-              </select>
-            </div>
-
-            <div>
-              <label>Expiry Date</label>
-              <input type="date" id="fExpiryDate">
-              <div id="fExpiryDaysLabel" class="hint"></div>
-            </div>
-            <div>
-              <label>Payment Required</label>
-              <select id="fPaymentRequired">
-                <option>No</option>
-                <option>Yes</option>
-              </select>
-            </div>
-
-            <div id="paymentFields" class="full field-grid hidden" style="grid-template-columns: 1fr 1fr;">
+          <div class="detail-card">
+            <div class="section-title">Request Details</div>
+            <div class="field-grid">
               <div>
-                <label>Payment Amount (INR)</label>
-                <input type="number" id="fPaymentAmount" min="1" placeholder="5000">
-              </div>
-              <div>
-                <label>Payment Provider</label>
-                <select id="fPaymentProvider">
-                  <option value="UPI QR">UPI QR</option>
-                  <option value="Razorpay">Razorpay</option>
+                <label>Request Type</label>
+                <select id="fRequestType">
+                  <option>New Activation</option>
+                  <option>Renewal</option>
+                  <option>Switched Computer</option>
                 </select>
               </div>
+              <div style="position:relative;">
+                <label>Previous Machine ID (only if switching)</label>
+                <div class="dropdown-input">
+                  <input type="text" id="fPreviousUid" placeholder="Search company or paste UID..." autocomplete="off">
+                  <svg class="dropdown-chevron" width="11" height="7" viewBox="0 0 11 7" fill="none"><path d="M1 1l4.5 4.5L10 1" stroke="#94a3b8" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </div>
+                <div id="prevUidSuggestions" class="autocomplete-list hidden"></div>
+                <div id="prevUidFromHint" class="hint hidden"></div>
+              </div>
+
+              <div>
+                <label>Product</label>
+                <select id="fProduct">
+                  <option value="ambill">ambill</option>
+                  <option value="amfreezer">amfreezer</option>
+                </select>
+              </div>
+              <div>
+                <label>License Type</label>
+                <select id="fLicenseType">
+                  <option>Paid</option>
+                  <option>Trial</option>
+                </select>
+              </div>
+
+              <div>
+                <label>Expiry Date</label>
+                <input type="date" id="fExpiryDate">
+                <div id="fExpiryDaysLabel" class="hint"></div>
+              </div>
+              <div>
+                <label>Payment Required</label>
+                <select id="fPaymentRequired">
+                  <option>No</option>
+                  <option>Yes</option>
+                </select>
+              </div>
+
+              <div id="paymentFields" class="full field-grid hidden" style="grid-template-columns: 1fr 1fr;">
+                <div>
+                  <label>Payment Amount (INR)</label>
+                  <input type="number" id="fPaymentAmount" min="1" placeholder="5000">
+                </div>
+                <div>
+                  <label>Payment Provider</label>
+                  <select id="fPaymentProvider">
+                    <option value="UPI QR">UPI QR</option>
+                    <option value="Razorpay">Razorpay</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div class="actions-row" style="margin-top: 18px;">
+              <button class="btn-primary" id="saveBtn">💾 Save Changes</button>
+              <span id="saveHint" class="hint" style="align-self:center;"></span>
             </div>
           </div>
 
-          <div class="actions-row" style="margin-top: 18px;">
-            <button class="btn-primary" id="saveBtn">💾 Save Changes</button>
-            <span id="saveHint" class="hint" style="align-self:center;"></span>
+          <div class="detail-card">
+            <div class="section-title">Actions</div>
+            <div id="approvalHint" class="callout hidden"></div>
+            <div id="runProgressBox" class="hidden" style="margin-bottom:14px;"></div>
+            <div class="actions-row">
+              <button id="markPaidBtn" class="btn-primary hidden">✓ Mark Payment Received &amp; Release License</button>
+              <button id="approveBtn" class="btn-teal">✓ Approve &amp; Sign Now</button>
+              <button id="extendBtn" class="btn-secondary hidden">🔄 Extend License</button>
+              <button id="runPaymentCheckBtn" class="btn-secondary">↻ Run Payment Check Now</button>
+              <button id="closeBtn" class="btn-secondary">✕ Close / Reject</button>
+              <button id="reopenBtn" class="btn-secondary hidden">↺ Reopen Request</button>
+              <button id="revokeBtn" class="btn-danger">⛔ Revoke This Machine</button>
+            </div>
           </div>
 
-          <div class="section-title">Actions</div>
-          <div id="approvalHint" class="callout hidden"></div>
-          <div id="runProgressBox" class="hidden" style="margin-bottom:14px;"></div>
+          <div class="detail-card">
+            <div class="section-title">Comment</div>
+            <textarea id="commentText" rows="3" placeholder="Note for the record, or a message the customer will see..."></textarea>
+            <div class="actions-row" style="margin-top: 10px;">
+              <button id="commentBtn" class="btn-secondary">💬 Post Comment</button>
+            </div>
+          </div>
+
           <div class="actions-row">
-            <button id="markPaidBtn" class="btn-primary hidden">✓ Mark Payment Received &amp; Release License</button>
-            <button id="approveBtn" class="btn-teal">✓ Approve &amp; Sign Now</button>
-            <button id="extendBtn" class="btn-secondary hidden">🔄 Extend License</button>
-            <button id="runPaymentCheckBtn" class="btn-secondary">↻ Run Payment Check Now</button>
-            <button id="closeBtn" class="btn-secondary">✕ Close / Reject</button>
-            <button id="reopenBtn" class="btn-secondary hidden">↺ Reopen Request</button>
-            <button id="revokeBtn" class="btn-danger">⛔ Revoke This Machine</button>
-          </div>
-
-          <div class="section-title">Comment</div>
-          <textarea id="commentText" rows="3" placeholder="Note for the record, or a message the customer will see..."></textarea>
-          <div class="actions-row" style="margin-top: 10px;">
-            <button id="commentBtn" class="btn-secondary">💬 Post Comment</button>
-          </div>
-
-          <div class="actions-row" style="margin-top: 20px;">
             <button id="backBtn" class="btn-secondary">← Back to list</button>
           </div>
 
@@ -797,21 +846,27 @@
 
           <div id="crashReadonlyBlock" class="readonly-block"></div>
 
-          <div class="section-title">Stack Trace</div>
-          <div id="crashStackTrace" class="license-box" style="max-height: 260px;"></div>
-
-          <div class="section-title">Recurrence History</div>
-          <div id="crashHistoryList"></div>
-
-          <div class="section-title">Actions</div>
-          <div class="actions-row">
-            <button id="crashIgnoreBtn" class="btn-secondary">🙈 Ignore</button>
-            <button id="crashCloseBtn" class="btn-secondary">✕ Close (fixed)</button>
-            <button id="crashReopenBtn" class="btn-secondary hidden">↺ Reopen</button>
-            <a class="btn-link" id="crashGhLink" href="#" target="_blank" style="align-self:center;">View on GitHub →</a>
+          <div class="detail-card">
+            <div class="section-title">Stack Trace</div>
+            <div id="crashStackTrace" class="license-box" style="max-height: 260px;"></div>
           </div>
 
-          <div class="actions-row" style="margin-top: 20px;">
+          <div class="detail-card">
+            <div class="section-title">Recurrence History</div>
+            <div id="crashHistoryList"></div>
+          </div>
+
+          <div class="detail-card">
+            <div class="section-title">Actions</div>
+            <div class="actions-row">
+              <button id="crashIgnoreBtn" class="btn-secondary">🙈 Ignore</button>
+              <button id="crashCloseBtn" class="btn-secondary">✕ Close (fixed)</button>
+              <button id="crashReopenBtn" class="btn-secondary hidden">↺ Reopen</button>
+              <a class="btn-link" id="crashGhLink" href="#" target="_blank" style="align-self:center;">View on GitHub →</a>
+            </div>
+          </div>
+
+          <div class="actions-row">
             <button id="crashBackBtn" class="btn-secondary">← Back to list</button>
           </div>
 
@@ -1018,6 +1073,34 @@ function renderHistory(comments) {
 }
 function escapeHtml(s) {
   return (s || "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+// One cell in the readonlyBlock/crashReadonlyBlock "profile card" stat grid — label above,
+// value below. valueHtml is already-escaped/pre-built markup (a plain value, or a small
+// <span class="badge">). full spans the whole card width, for long/identifying values
+// (messages, UIDs, exception names) that would look cramped in a compact grid cell.
+// keepEmpty:true always renders the cell (used for fields the code has already decided to
+// show unconditionally); otherwise an empty value renders nothing, matching the same
+// conditional-display behavior the old inline ${cond ? ... : ""} lines had.
+function statCell(label, valueHtml, opts) {
+  opts = opts || {};
+  if (!opts.keepEmpty && !valueHtml) return "";
+  const fullCls = opts.full ? " full" : "";
+  const monoCls = opts.mono ? " mono" : "";
+  return `<div class="stat${fullCls}"><div class="stat-label">${escapeHtml(label)}</div><div class="stat-value${monoCls}">${valueHtml}</div></div>`;
+}
+
+// The readonlyBlock/crashReadonlyBlock left accent bar — same color as the entry's own status
+// badge (see computeStatus/computeCrashStatus's .cls), so the card reads its state at a
+// glance. References another CSS var (not a literal color) so it stays theme-reactive.
+function accentColorVar(badgeCls) {
+  const map = {
+    "badge-new": "--info", "badge-payment": "--warn", "badge-signed": "--success",
+    "badge-closed": "--danger", "badge-approval": "--purple",
+    "badge-fatal": "--danger", "badge-recoverable": "--warn", "badge-unobserved": "--purple",
+    "badge-caught": "--teal", "badge-ignored": "--muted-2"
+  };
+  return "var(" + (map[badgeCls] || "--teal") + ")";
 }
 
 // ── Expiry: stored/signed as a day-count ("Requested Expiry (days from
@@ -1402,11 +1485,13 @@ function openIssue(entry) {
   statePill.className = "state-pill " + issue.state;
 
   const status = computeStatus(entry);
-  document.getElementById("readonlyBlock").innerHTML = `
-    <div class="rline"><b>Company</b> ${escapeHtml(getField(body, "Company Name"))}</div>
-    <div class="rline"><b>Contact</b> ${escapeHtml(getField(body, "Contact Person"))} — ${escapeHtml(getField(body, "Contact Phone"))}</div>
-    <div class="rline"><b>Machine ID</b> ${escapeHtml(getField(body, "Machine ID"))}</div>
-    <div class="rline"><b>Status</b> <span class="badge ${status.cls}">${status.label}</span></div>`;
+  const readonlyBlockEl = document.getElementById("readonlyBlock");
+  readonlyBlockEl.style.setProperty("--accent", accentColorVar(status.cls));
+  readonlyBlockEl.innerHTML =
+    statCell("Company", escapeHtml(getField(body, "Company Name")), { full: true }) +
+    statCell("Contact", escapeHtml(getField(body, "Contact Person")) + " — " + escapeHtml(getField(body, "Contact Phone")), { full: true }) +
+    statCell("Machine ID", escapeHtml(getField(body, "Machine ID")), { mono: true }) +
+    statCell("Status", `<span class="badge ${status.cls}">${status.label}</span>`, { keepEmpty: true });
 
   renderLicenseCrashSection(getField(body, "Machine ID"), issue.number);
 
@@ -2275,19 +2360,21 @@ function openCrashIssue(entry) {
   statePill.className = "state-pill " + (isIgnored(issue) ? "ignored" : issue.state);
 
   const occurrences = countOccurrences(entry);
-  document.getElementById("crashReadonlyBlock").innerHTML = `
-    <div class="rline"><b>Exception</b> ${escapeHtml(exceptionType)}</div>
-    <div class="rline"><b>Message</b> ${escapeHtml(getField(body, "Message"))}</div>
-    <div class="rline"><b>Severity</b> <span class="badge ${severityBadgeClass(getField(body, "Severity"))}">${escapeHtml(getField(body, "Severity") || "Recoverable")}</span></div>
-    <div class="rline"><b>App Version</b> ${escapeHtml(getField(body, "App Version"))}</div>
-    <div class="rline"><b>Device UID</b> ${escapeHtml(getField(body, "Device UID"))}</div>
-    <div class="rline"><b>Machine</b> ${escapeHtml(getField(body, "Machine Name"))}</div>
-    <div class="rline"><b>OS</b> ${escapeHtml(getField(body, "OS Version"))}</div>
-    ${getField(body, "User") ? `<div class="rline"><b>User</b> ${escapeHtml(getField(body, "User"))}</div>` : ""}
-    ${getField(body, "Company") ? `<div class="rline"><b>Company</b> ${escapeHtml(getField(body, "Company"))}</div>` : ""}
-    ${getField(body, "Target Site") ? `<div class="rline"><b>Target Site</b> ${escapeHtml(getField(body, "Target Site"))}</div>` : ""}
-    <div class="rline"><b>First Seen</b> ${escapeHtml(getField(body, "First Seen (UTC)"))} UTC</div>
-    <div class="rline"><b>Occurrences</b> ${occurrences}×</div>`;
+  const crashReadonlyBlockEl = document.getElementById("crashReadonlyBlock");
+  crashReadonlyBlockEl.style.setProperty("--accent", accentColorVar(status.cls));
+  crashReadonlyBlockEl.innerHTML =
+    statCell("Exception", escapeHtml(exceptionType), { full: true }) +
+    statCell("Message", escapeHtml(getField(body, "Message")), { full: true }) +
+    statCell("Severity", `<span class="badge ${severityBadgeClass(getField(body, "Severity"))}">${escapeHtml(getField(body, "Severity") || "Recoverable")}</span>`, { keepEmpty: true }) +
+    statCell("App Version", escapeHtml(getField(body, "App Version"))) +
+    statCell("Device UID", escapeHtml(getField(body, "Device UID")), { full: true, mono: true }) +
+    statCell("Machine", escapeHtml(getField(body, "Machine Name"))) +
+    statCell("OS", escapeHtml(getField(body, "OS Version"))) +
+    statCell("User", escapeHtml(getField(body, "User"))) +
+    statCell("Company", escapeHtml(getField(body, "Company"))) +
+    statCell("Target Site", escapeHtml(getField(body, "Target Site")), { full: true, mono: true }) +
+    statCell("First Seen", escapeHtml(getField(body, "First Seen (UTC)")) + " UTC", { keepEmpty: true }) +
+    statCell("Occurrences", occurrences + "×", { keepEmpty: true });
 
   const stackMatch = body.match(/<summary>Stack Trace<\/summary>\s*\n\n```\n([\s\S]*?)\n```/);
   document.getElementById("crashStackTrace").textContent = stackMatch ? stackMatch[1] : "(no stack trace captured)";

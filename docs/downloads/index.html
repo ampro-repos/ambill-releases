@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ambill downloads</title>
+<link rel="icon" type="image/png" href="../assets/amprologo.png">
+<style>
+  :root {
+    --bg: #f4f6fa; --surface: #ffffff; --text: #14233c; --muted: #5a6a82; --border: #dae0e8;
+    --accent: #f7941d; --accent-dark: #da7d0f; --navy: #0b2442; --note-bg: #fff6e5; --note-border: #f5d393;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0b1626; --surface: #13233a; --text: #e8eef8; --muted: #93a6c2; --border: #25395a;
+            --note-bg: #2a2111; --note-border: #5b4620; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 16px/1.5 "Segoe UI", system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif; }
+  header { background: linear-gradient(135deg, #12345e, #071226); color: #fff; padding: 36px 20px 40px; }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 0 20px; }
+  header .wrap { display: flex; align-items: center; gap: 18px; }
+  header img { width: 56px; height: 56px; border-radius: 50%; background: rgba(255,255,255,.12); padding: 6px; }
+  header h1 { margin: 0; font-size: 28px; font-weight: 600; letter-spacing: .2px; }
+  header p { margin: 2px 0 0; color: #a9c0e0; }
+  main { padding: 28px 0 56px; }
+  .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin: 0 0 26px; padding: 0; list-style: none; }
+  .steps li { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; font-size: 14.5px; color: var(--muted); }
+  .steps b { display: block; color: var(--text); margin-bottom: 2px; }
+  .steps .n { display: inline-flex; width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: #fff;
+              font-size: 12px; font-weight: 700; align-items: center; justify-content: center; margin-right: 8px; }
+  .note { background: var(--note-bg); border: 1px solid var(--note-border); border-radius: 12px; padding: 12px 16px; margin-bottom: 30px; font-size: 14.5px; }
+  .product h2 { font-size: 22px; font-weight: 600; margin: 8px 0 14px; }
+  .product h2 span { font-size: 14px; font-weight: 400; color: var(--muted); margin-left: 8px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 16px; margin-bottom: 30px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 18px 18px 14px;
+          display: flex; flex-direction: column; box-shadow: 0 1px 2px rgba(10,30,60,.05); }
+  .card.generic { border-color: var(--accent); box-shadow: 0 2px 10px rgba(247,148,29,.18); }
+  .tag { align-self: flex-start; font-size: 11.5px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase;
+         color: var(--accent-dark); background: rgba(247,148,29,.14); border-radius: 999px; padding: 3px 10px; }
+  .card h3 { margin: 10px 0 4px; font-size: 20px; font-weight: 600; }
+  .sub { margin: 0 0 14px; color: var(--muted); font-size: 14.5px; flex: 1; }
+  .btn { display: block; text-align: center; text-decoration: none; background: var(--accent); color: #fff; font-weight: 600;
+         padding: 11px 14px; border-radius: 10px; }
+  .btn:hover { background: var(--accent-dark); }
+  .meta { margin-top: 10px; font-size: 13px; color: var(--muted); }
+  a { color: #1565c0; }
+  @media (prefers-color-scheme: dark) { a { color: #7db4ff; } }
+  .btn, .btn:hover { color: #fff; }
+  details { margin-top: 10px; font-size: 14px; }
+  summary { cursor: pointer; color: var(--muted); }
+  details ul { margin: 8px 0 0; padding-left: 18px; }
+  details li { margin: 3px 0; } details li span { color: var(--muted); margin: 0 4px; }
+  .empty { color: var(--muted); }
+  footer { color: var(--muted); font-size: 13px; padding-bottom: 36px; }
+  @media (max-width: 720px) { .steps { grid-template-columns: 1fr; } header h1 { font-size: 22px; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <img src="../assets/amprologo.png" alt="ampro">
+    <div><h1>ambill downloads</h1><p>Choose your installer and get set up in a few minutes.</p></div>
+  </div>
+</header>
+<main>
+  <div class="wrap">
+    <ol class="steps">
+      <li><b><span class="n">1</span>Download</b>Pick the installer for your product and financial year below.</li>
+      <li><b><span class="n">2</span>Install</b>Run the file. The setup wizard opens the first time you start the app.</li>
+      <li><b><span class="n">3</span>Set up</b>Follow the wizard: license, database, company and administrator.</li>
+    </ol>
+    <div class="note"><b>Windows may warn about the file.</b> The installers are not code-signed yet, so Edge or Windows can say the file
+      &ldquo;isn&rsquo;t commonly downloaded&rdquo;. Choose <b>Keep</b>, then <b>Run anyway</b>.</div>
+<section class="product">
+  <h2>ambill <span>Billing &amp; Accounting</span></h2>
+  <div class="grid">
+    <article class="card generic">
+      <div class="tag">Generic</div>
+      <h3>ambill</h3>
+      <p class="sub">One app for every year. You choose the financial year(s) during setup.</p>
+      <a class="btn" href="https://github.com/ampro-repos/ambill-releases/releases/download/ambill/Generic/v26.1.2/ambill-Setup.exe">Download v26.1.2 &middot; 379 MB</a>
+      <div class="meta">Released 2026-10-24 &middot; <a href="https://github.com/ampro-repos/ambill-releases/releases/tag/ambill/Generic/v26.1.2">release notes</a></div>
+    </article>
+    <article class="card">
+      <div class="tag">Financial year 2027-28</div>
+      <h3>ambill 2027-28</h3>
+      <p class="sub">A dedicated app for this financial year. Installs side by side with other years.</p>
+      <a class="btn" href="https://github.com/ampro-repos/ambill-releases/releases/download/ambill/ambill_27_28/v26.1.2/ambill_27_28-Setup.exe">Download v26.1.2 &middot; 379 MB</a>
+      <div class="meta">Released 2026-10-24 &middot; <a href="https://github.com/ampro-repos/ambill-releases/releases/tag/ambill/ambill_27_28/v26.1.2">release notes</a></div>
+    </article>
+    <article class="card">
+      <div class="tag">Financial year 2026-27</div>
+      <h3>ambill 2026-27</h3>
+      <p class="sub">A dedicated app for this financial year. Installs side by side with other years.</p>
+      <a class="btn" href="https://github.com/ampro-repos/ambill-releases/releases/download/ambill/ambill_26_27/v26.1.2/ambill_26_27-Setup.exe">Download v26.1.2 &middot; 379 MB</a>
+      <div class="meta">Released 2026-10-24 &middot; <a href="https://github.com/ampro-repos/ambill-releases/releases/tag/ambill/ambill_26_27/v26.1.2">release notes</a></div>
+    </article>
+    <article class="card">
+      <div class="tag">Financial year 2025-26</div>
+      <h3>ambill 2025-26</h3>
+      <p class="sub">A dedicated app for this financial year. Installs side by side with other years.</p>
+      <a class="btn" href="https://github.com/ampro-repos/ambill-releases/releases/download/ambill/ambill_25_26/v26.1.2/ambill_25_26-Setup.exe">Download v26.1.2 &middot; 379 MB</a>
+      <div class="meta">Released 2026-10-24 &middot; <a href="https://github.com/ampro-repos/ambill-releases/releases/tag/ambill/ambill_25_26/v26.1.2">release notes</a></div>
+    </article>
+  </div>
+</section>
+
+    <footer>Updated 2026-10-24 &middot; <a href="https://github.com/ampro-repos/ambill-releases/releases">All releases on GitHub</a></footer>
+  </div>
+</main>
+</body>
+</html>

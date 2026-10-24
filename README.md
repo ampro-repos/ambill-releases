@@ -38,3 +38,29 @@ Newest generic ambill: [releases/latest](https://github.com/ampro-repos/ambill-r
 | v26.1.3 | 2026-10-24 | [download](https://github.com/ampro-repos/ambill-releases/releases/download/ambill/ambill_25_26/v26.1.3/ambill_25_26-Setup.exe) | [release notes](https://github.com/ampro-repos/ambill-releases/releases/tag/ambill/ambill_25_26/v26.1.3) |
 | v26.1.2 | 2026-10-24 | [download](https://github.com/ampro-repos/ambill-releases/releases/download/ambill/ambill_25_26/v26.1.2/ambill_25_26-Setup.exe) | [release notes](https://github.com/ampro-repos/ambill-releases/releases/tag/ambill/ambill_25_26/v26.1.2) |
 
+## amfreezer
+
+### amfreezer / amfreezer_26_27
+
+| Version | Date | Installer | Release |
+|---|---|---|---|
+| v1.0.0 | 2026-10-25 | [download](https://github.com/ampro-repos/ambill-releases/releases/download/amfreezer/amfreezer_26_27/v1.0.0/amfreezer_26_27-Setup.exe) | [release notes](https://github.com/ampro-repos/ambill-releases/releases/tag/amfreezer/amfreezer_26_27/v1.0.0) |
+
+### amfreezer / Generic
+
+| Version | Date | Installer | Release |
+|---|---|---|---|
+| v1.0.0 | 2026-10-25 | [download](https://github.com/ampro-repos/ambill-releases/releases/download/amfreezer/Generic/v1.0.0/amfreezer-Setup.exe) | [release notes](https://github.com/ampro-repos/ambill-releases/releases/tag/amfreezer/Generic/v1.0.0) |
+
+### amfreezer / amfreezer_27_28
+
+| Version | Date | Installer | Release |
+|---|---|---|---|
+| v1.0.0 | 2026-10-25 | [download](https://github.com/ampro-repos/ambill-releases/releases/download/amfreezer/amfreezer_27_28/v1.0.0/amfreezer_27_28-Setup.exe) | [release notes](https://github.com/ampro-repos/ambill-releases/releases/tag/amfreezer/amfreezer_27_28/v1.0.0) |
+
+### amfreezer / amfreezer_25_26
+
+| Version | Date | Installer | Release |
+|---|---|---|---|
+| v1.0.0 | 2026-10-25 | [download](https://github.com/ampro-repos/ambill-releases/releases/download/amfreezer/amfreezer_25_26/v1.0.0/amfreezer_25_26-Setup.exe) | [release notes](https://github.com/ampro-repos/ambill-releases/releases/tag/amfreezer/amfreezer_25_26/v1.0.0) |
+

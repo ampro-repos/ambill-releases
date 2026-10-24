@@ -110,6 +110,27 @@
   .shot .tp { font-size:10px; font-weight:700; border-radius:999px; padding:2px 8px; } .shot .tp.ok { background:#e3f5ea; color:#177a47; } .shot .tp.du { background:#fff1dc; color:#a45a00; }
   .shot-cap { text-align:right; font-size:12px; color:#7f95b8; margin-top:10px; }
 
+  .hero-shot { margin:0; background:#fff; border-radius:12px; overflow:hidden; box-shadow:0 30px 70px rgba(0,0,0,.45), 0 0 0 1px rgba(255,255,255,.1); }
+  .hero-shot .chrome { display:flex; gap:7px; padding:10px 14px; background:#e9eef6; border-bottom:1px solid #d6deea; }
+  .hero-shot .chrome i { width:10px; height:10px; border-radius:50%; background:#c1cbdc; }
+  .hero-shot img { display:block; width:100%; height:auto; }
+  .hero-shot { max-width:520px; margin-left:auto; }
+
+  /* ---------- product tour ---------- */
+  .tour { display:grid; grid-template-columns:340px minmax(0,1fr); gap:40px; align-items:start; }
+  .tour-list { display:grid; gap:8px; }
+  .tour-item { text-align:left; font:inherit; background:var(--bg); border:1px solid var(--line); border-radius:12px; padding:16px 18px; cursor:pointer; transition:border-color .15s, box-shadow .15s; }
+  .tour-item b { display:block; font-size:16.5px; font-weight:600; color:var(--ink); margin-bottom:3px; }
+  .tour-item span { display:block; font-size:14.5px; color:var(--muted); line-height:1.5; }
+  .tour-item:hover { border-color:var(--line-2); }
+  .tour-item[aria-selected="true"] { border-color:var(--accent); box-shadow:inset 3px 0 0 var(--accent), var(--shadow); }
+  .tour-view { background:var(--bg-alt); border:1px solid var(--line); border-radius:14px; padding:18px; }
+  .tour-view .frame { background:#fff; border-radius:10px; overflow:hidden; border:1px solid var(--line-2); box-shadow:var(--shadow); }
+  .tour-view img { display:block; width:100%; height:auto; }
+  .tour-view .cap { margin:14px 4px 2px; font-size:14px; color:var(--muted); }
+  .tour-view .cap.small { font-size:13px; }
+  .tour-view .frame.narrow { max-width:520px; margin-inline:auto; }
+
   /* ---------- sections ---------- */
   section { padding:92px 0; }
   .alt { background:var(--bg-alt); border-block:1px solid var(--line); }
@@ -223,6 +244,7 @@
   footer .legal { margin-top:44px; padding-top:22px; border-top:1px solid rgba(255,255,255,.1); display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap; font-size:13.5px; }
 
   @media (max-width:1020px) {
+    .tour { grid-template-columns:1fr; } .tour-list { grid-template-columns:repeat(2,1fr); }
     .hero .wrap { grid-template-columns:1fr; gap:44px; padding-top:60px; padding-bottom:64px; }
     .band .wrap { grid-template-columns:repeat(3,1fr); } .band .it:nth-child(4) { border-left:0; } .band .it { border-top:1px solid var(--line); } .band .it:nth-child(-n+3) { border-top:0; }
     .pillars, .prods, .sec, .caps.show, .req { grid-template-columns:1fr; } .pil { border-left:0; border-top:1px solid var(--line); } .pil:first-child { border-top:0; }
@@ -235,6 +257,7 @@
     .menu.open { display:flex; } .drop { position:static; display:block; box-shadow:none; border:0; padding:0 0 0 10px; min-width:0; }
     .burger { display:block; margin-left:auto; } .nav .right { display:none; } .util .wrap > span:last-child { display:none; }
     .band .wrap { grid-template-columns:1fr 1fr; } .band .it { border-left:0 !important; border-top:1px solid var(--line) !important; } .band .it:nth-child(-n+2) { border-top:0 !important; }
+    .tour-list { grid-template-columns:1fr; }
     .roll { grid-template-columns:1fr; } .shot .app { grid-template-columns:84px minmax(0,1fr); } .shot .k strong { font-size:15px; } .shot .k em { display:none; }
     .dl-head { display:none; } .dl-row { grid-template-columns:1fr 1fr; gap:6px 14px; padding:18px 18px 12px; } .c-name { grid-column:1 / -1; } .c-act { grid-column:1 / -1; justify-content:flex-start; margin-top:8px; } .older { padding:0 18px 16px; }
     .prod { padding:26px; } footer .cols { grid-template-columns:1fr; }
@@ -282,6 +305,7 @@
           <a href="#products"><span class="di">ab</span><span><b>ambill</b><span>Accounting, billing and GST compliance</span></span></a>
           <a href="#products"><span class="di t">af</span><span><b>amfreezer</b><span>Cold storage management</span></span></a>
         </div></li>
+      <li><a href="#tour">Product tour</a></li>
       <li><a href="#capabilities">Capabilities</a></li>
       <li><a href="#security">Security &amp; deployment</a></li>
       <li><a href="#rollout">Rollout</a></li>
@@ -309,28 +333,11 @@
       </div>
     </div>
     <div>
-      <div class="shot" aria-hidden="true">
-        <div class="top"><i></i><i></i><i></i><b>ambill &mdash; Dashboard</b></div>
-        <div class="app">
-          <div class="nv"><span class="on">Dashboard</span><span>Sales</span><span>Purchases</span><span>Vouchers</span><span>Ledgers</span><span>GST returns</span><span>Reports</span></div>
-          <div class="mn">
-            <div class="row3">
-              <div class="k"><small>Sales (month)</small><strong>&#8377;12.4L</strong><em>+8%</em></div>
-              <div class="k"><small>Receivable</small><strong>&#8377;3.1L</strong></div>
-              <div class="k"><small>GST payable</small><strong>&#8377;0.9L</strong></div>
-            </div>
-            <div class="ch"><small>Sales trend</small>
-              <svg viewBox="0 0 320 90" width="100%" height="90" preserveAspectRatio="none"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1f5fbf" stop-opacity=".35"/><stop offset="1" stop-color="#1f5fbf" stop-opacity="0"/></linearGradient></defs>
-                <path d="M0 70 C30 64 50 52 80 56 S130 40 160 36 S215 44 240 26 S295 18 320 10 L320 90 L0 90Z" fill="url(#g)"/>
-                <path d="M0 70 C30 64 50 52 80 56 S130 40 160 36 S215 44 240 26 S295 18 320 10" fill="none" stroke="#1f5fbf" stroke-width="2.2"/></svg></div>
-            <table><thead><tr><th>Invoice</th><th>Party</th><th>Status</th></tr></thead><tbody>
-              <tr><td>INV-1042</td><td>Sample Traders</td><td><span class="tp ok">Paid</span></td></tr>
-              <tr><td>INV-1043</td><td>Sample Mills</td><td><span class="tp du">Due</span></td></tr>
-              <tr><td>INV-1044</td><td>Sample Stores</td><td><span class="tp ok">Paid</span></td></tr></tbody></table>
-          </div>
-        </div>
-      </div>
-      <div class="shot-cap">Product illustration with sample data</div>
+      <figure class="hero-shot">
+        <div class="chrome"><i></i><i></i><i></i></div>
+        <img src="../assets/screens/quick-access.jpg" width="506" height="584" alt="The ambill quick-access screen with one-key shortcuts to ledgers, invoices, payments and reports">
+      </figure>
+      <div class="shot-cap">ambill quick access: one key to the screens you use every day</div>
     </div>
   </div>
 </header>
@@ -389,7 +396,26 @@
   </div>
 </section>
 
-<section id="capabilities">
+<section id="tour">
+  <div class="wrap">
+    <div class="sh"><div class="eyebrow">Product tour</div><h2>See ambill at work</h2><p>Real screens from the application, not mock-ups.</p></div>
+    <div class="tour">
+      <div class="tour-list" role="tablist" id="ttabs">
+        <button class="tour-item" role="tab" aria-selected="true" data-img="login.jpg" data-w="1100" data-h="878" data-narrow="0" data-alt="The ambill sign-in screen with the GST and TDS due-date calendar" data-cap="One login for all your companies. The sign-in screen keeps the next GSTR-1, GSTR-3B and TDS due dates in view."><b>Sign in and stay on top of due dates</b><span>One login for every company, with the GST and TDS calendar on the first screen.</span></button>
+        <button class="tour-item" role="tab" aria-selected="false" data-img="sales-voucher.jpg" data-w="888" data-h="378" data-narrow="0" data-alt="The ambill sales voucher screen" data-cap="Sales voucher with GST group details, tax analysis, shipping address, invoice search and e-Invoice (F11) on one screen."><b>Raise GST sales vouchers</b><span>Tax analysis, shipping details, invoice search and e-Invoice from the same screen.</span></button>
+        <button class="tour-item" role="tab" aria-selected="false" data-img="payments.jpg" data-w="1070" data-h="238" data-narrow="0" data-alt="The ambill payment allocation screen" data-cap="Allocate payments by party, print cheques and RTGS lists, set limits and post the bank transactions in one pass."><b>Allocate payments in bulk</b><span>Cheque and RTGS lists, limits and posting to the bank, together.</span></button>
+        <button class="tour-item" role="tab" aria-selected="false" data-img="quick-access.jpg" data-w="506" data-h="584" data-narrow="1" data-alt="The ambill quick-access shortcuts" data-cap="One-key shortcuts to the screens used every day: party ledgers, akada entry, proforma invoice, builty sales and purchase, payment list, purchase report and trial balance."><b>Reach daily screens with one key</b><span>Shortcuts for ledgers, invoices, payments and reports.</span></button>
+      </div>
+      <div class="tour-view">
+        <div class="frame" id="tframe"><img id="timg" src="../assets/screens/login.jpg" width="1100" height="878" alt="The ambill sign-in screen with the GST and TDS due-date calendar"></div>
+        <p class="cap" id="tcap">One login for all your companies. The sign-in screen keeps the next GSTR-1, GSTR-3B and TDS due dates in view.</p>
+        <p class="cap small">Screens shown with demonstration data.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="alt" id="capabilities">
   <div class="wrap">
     <div class="sh"><div class="eyebrow">Capabilities</div><h2>What each product covers</h2><p>A side-by-side view of the modules, followed by the detail for each product.</p></div>
     <div class="tw">
@@ -439,7 +465,7 @@
   </div>
 </section>
 
-<section class="alt" id="security">
+<section id="security">
   <div class="wrap">
     <div class="sh"><div class="eyebrow">Security &amp; deployment</div><h2>Your data stays on your infrastructure</h2><p>In a standard installation ampro runs as a desktop application against a SQL Server that you control.</p></div>
     <div class="sec">
@@ -589,6 +615,18 @@
   document.querySelectorAll('a[data-pick]').forEach(function (a) { a.addEventListener('click', function () { setTab('dtabs', a.getAttribute('data-pick')); }); });
   document.querySelectorAll('a[data-feat]').forEach(function (a) { a.addEventListener('click', function () { setTab('ftabs', a.getAttribute('data-feat')); }); });
   setTab('dtabs', 'ambill');
+
+  // product tour
+  var tabs = document.querySelectorAll('#ttabs .tour-item'), timg = document.getElementById('timg'), tcap = document.getElementById('tcap'), tframe = document.getElementById('tframe');
+  tabs.forEach(function (t) {
+    t.addEventListener('click', function () {
+      tabs.forEach(function (o) { o.setAttribute('aria-selected', o === t ? 'true' : 'false'); });
+      timg.src = '../assets/screens/' + t.getAttribute('data-img');
+      timg.width = +t.getAttribute('data-w'); timg.height = +t.getAttribute('data-h');
+      timg.alt = t.getAttribute('data-alt'); tcap.textContent = t.getAttribute('data-cap');
+      tframe.classList.toggle('narrow', t.getAttribute('data-narrow') === '1');
+    });
+  });
 
   // mobile menu
   var burger = document.getElementById('burger'), menu = document.getElementById('menu');

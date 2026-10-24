@@ -279,9 +279,70 @@
     .prod { padding:26px; } footer .cols { grid-template-columns:1fr; }
   }
   @media (prefers-reduced-motion: reduce) { html { scroll-behavior:auto; } * { transition:none !important; } }
+
+  /* ---------- ANIMATION LAYER ---------- */
+  html { scroll-behavior:smooth; }
+  .progress { position:fixed; left:0; top:0; height:3px; width:100%; z-index:100; transform-origin:0 50%; transform:scaleX(0); background:linear-gradient(90deg,var(--accent),#ffcf7a); pointer-events:none; }
+  .nav { transition:box-shadow .3s ease; } .nav.stuck { box-shadow:0 8px 30px rgba(11,27,51,.12); }
+  .totop { position:fixed; right:22px; bottom:22px; width:46px; height:46px; border-radius:50%; border:0; background:var(--navy-2); color:#fff; cursor:pointer; z-index:70; box-shadow:0 10px 30px rgba(11,27,51,.35); opacity:0; translate:0 16px; pointer-events:none; transition:opacity .3s ease, translate .3s ease, background .2s; display:flex; align-items:center; justify-content:center; }
+  .totop.show { opacity:1; translate:0 0; pointer-events:auto; } .totop:hover { background:var(--accent-d); }
+  .totop svg { width:20px; height:20px; transform:rotate(180deg); }
+
+  /* hero entrance */
+  @keyframes fadeUp { from { opacity:0; transform:translateY(26px); } to { opacity:1; transform:none; } }
+  @keyframes fromRight { from { opacity:0; transform:translateX(60px) scale(.96); } to { opacity:1; transform:none; } }
+  @keyframes floaty { 0%,100% { translate:0 0; } 50% { translate:0 -9px; } }
+  @keyframes drift { from { transform:translate3d(0,0,0) scale(1); } to { transform:translate3d(-3%,2.5%,0) scale(1.08); } }
+  @keyframes kb { from { transform:scale(1); } to { transform:scale(1.045); } }
+  @keyframes cue { 0%,100% { translate:0 0; opacity:.55; } 50% { translate:0 8px; opacity:1; } }
+  @keyframes pop { 0% { transform:scale(.4); opacity:0; } 70% { transform:scale(1.12); } 100% { transform:scale(1); opacity:1; } }
+  @keyframes glow { 0%,100% { box-shadow:0 0 0 0 rgba(247,148,29,.45); } 60% { box-shadow:0 0 0 9px rgba(247,148,29,0); } }
+  @keyframes paneIn { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:none; } }
+  .hero::before { animation:drift 14s ease-in-out infinite alternate; }
+  .hero .eyebrow, .hero h1, .hero .lead, .hero .actions, .hero .meta { animation:fadeUp .8s cubic-bezier(.2,.7,.2,1) both; }
+  .hero .eyebrow { animation-delay:.05s; } .hero h1 { animation-delay:.15s; } .hero .lead { animation-delay:.28s; } .hero .actions { animation-delay:.4s; } .hero .meta { animation-delay:.52s; }
+  .hero-shot { animation:fromRight 1s cubic-bezier(.2,.7,.2,1) .25s both, floaty 7s ease-in-out 1.4s infinite; }
+  .hs-slide.on img { animation:kb 6s ease-out both; }
+  .cue { position:absolute; left:50%; bottom:18px; margin-left:-16px; width:32px; height:32px; z-index:2; color:#9fb4d8; animation:cue 2s ease-in-out infinite; display:flex; align-items:center; justify-content:center; }
+  .cue svg { width:22px; height:22px; transform:rotate(0deg); } .cue:hover { color:#fff; }
+  #pane-ambill, #pane-amfreezer { animation:paneIn .5s ease both; }
+
+  /* scroll reveal (only when JS runs, so the page never ends up blank) */
+  .js .rv { opacity:0; transform:translateY(24px); transition:opacity .7s ease, transform .8s cubic-bezier(.2,.7,.2,1); transition-delay:var(--d,0s); }
+  .js .rv.in { opacity:1; transform:none; }
+  .js .rs::after { transform-origin:0 50%; transform:scaleX(0); transition:transform .9s ease calc(var(--d,0s) + .35s); }
+  .js .rs.in::after { transform:scaleX(1); }
+  .js .rs::before { opacity:0; } .js .rs.in::before { animation:pop .6s cubic-bezier(.2,.7,.2,1) var(--d,0s) both; }
+
+  /* hover feedback */
+  .prod, .sc, .pil, .dl-item, .req > div, .chip, .btn { transition:translate .25s ease, box-shadow .25s ease, background .2s, border-color .2s, color .2s; }
+  .prod:hover, .sc:hover { translate:0 -5px; box-shadow:0 18px 40px rgba(11,27,51,.12); }
+  .pil:hover { background:var(--bg-alt); }
+  .pil .pi, .cap .ci, .sc .si, .drop .di { transition:transform .3s cubic-bezier(.3,1.6,.5,1); }
+  .pil:hover .pi, .cap:hover .ci, .sc:hover .si { transform:scale(1.12) rotate(-5deg); }
+  .cap:hover h4 { color:var(--blue); } .cap h4 { transition:color .2s; }
+  .chip:hover { translate:0 -2px; }
+  .btn-primary { position:relative; overflow:hidden; }
+  .btn-primary::after { content:""; position:absolute; top:0; left:-70%; width:50%; height:100%; background:linear-gradient(100deg,transparent,rgba(255,255,255,.55),transparent); transform:skewX(-20deg); transition:left .6s ease; pointer-events:none; }
+  .btn-primary:hover::after { left:130%; }
+  .btn:hover .ic { transform:translateY(2px); } .btn .ic { transition:transform .2s ease; }
+  .btn:active { translate:0 1px; }
+  .dl-item:hover { background:var(--bg-alt); }
+  .dl-item.rec .pillt { animation:glow 2.4s ease-out infinite; }
+  .faq details { transition:background .2s; } .faq details[open] { background:var(--bg-alt); }
+
+  /* keep it gentle for people who asked for less motion: no looping or large movement, short fades stay */
+  @media (prefers-reduced-motion: reduce) {
+    .hero::before, .hero-shot, .hs-slide.on img, .cue, .dl-item.rec .pillt { animation:none; }
+    .hero-shot { animation:fadeUp .6s ease .2s both; }
+    .js .rv { transform:translateY(10px); }
+    html { scroll-behavior:auto; }
+  }
 </style>
 </head>
 <body>
+<script>document.documentElement.classList.add("js")</script>
+<div class="progress" id="progress" aria-hidden="true"></div>
 <a class="skip" href="#main">Skip to content</a>
 
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -356,6 +417,7 @@
       </figure>
     </div>
   </div>
+  <a class="cue" href="#overview" aria-label="Scroll to overview"><svg class="ic"><use href="#i-down"/></svg></a>
 </header>
 
 <div class="band"><div class="wrap">
@@ -678,6 +740,8 @@
   </div>
 </footer>
 
+<button class="totop" id="totop" aria-label="Back to top"><svg class="ic"><use href="#i-down"/></svg></button>
+
 <script>
 (function () {
   function setTab(group, name) {
@@ -750,6 +814,37 @@
   document.getElementById('tsw-ambill').addEventListener('click', function () { tourPane('ambill'); });
   document.getElementById('tsw-amfreezer').addEventListener('click', function () { tourPane('amfreezer'); });
 
+
+  // scroll progress, sticky-nav shadow, back-to-top
+  (function () {
+    var bar = document.getElementById('progress'), nav = document.querySelector('.nav'), top = document.getElementById('totop'), tick = false;
+    function upd() {
+      var h = document.documentElement, max = h.scrollHeight - h.clientHeight, y = window.pageYOffset || h.scrollTop;
+      bar.style.transform = 'scaleX(' + (max > 0 ? Math.min(1, y / max) : 0) + ')';
+      nav.classList.toggle('stuck', y > 40); top.classList.toggle('show', y > 700); tick = false;
+    }
+    window.addEventListener('scroll', function () { if (!tick) { tick = true; requestAnimationFrame(upd); } }, { passive: true });
+    top.addEventListener('click', function () { window.scrollTo({ top: 0, behavior: 'smooth' }); });
+    upd();
+  })();
+
+  // reveal blocks as they scroll into view, staggered within their group
+  (function () {
+    var sel = '.sh, .pil, .prod, .cap, .sc, .rs, .req > div, .callout, .dc, .faq details, .help .wrap > *, .tour-switch, .slider, .legal';
+    var els = Array.prototype.slice.call(document.querySelectorAll(sel));
+    if (!('IntersectionObserver' in window)) return;
+    var seen = new Map();
+    els.forEach(function (e) {
+      var par = e.parentNode, n = seen.get(par) || 0; seen.set(par, n + 1);
+      e.classList.add('rv'); e.style.setProperty('--d', Math.min(n, 5) * 0.09 + 's');
+    });
+    var io = new IntersectionObserver(function (list) {
+      list.forEach(function (en) { if (en.isIntersecting) { en.target.classList.add('in'); io.unobserve(en.target); } });
+    }, { threshold: 0.12, rootMargin: '0px 0px -6% 0px' });
+    els.forEach(function (e) { io.observe(e); });
+    // safety net: never leave anything hidden if the observer is slow
+    setTimeout(function () { els.forEach(function (e) { if (!e.classList.contains('in') && e.getBoundingClientRect().top < window.innerHeight) e.classList.add('in'); }); }, 1500);
+  })();
 
   // mobile menu
   var burger = document.getElementById('burger'), menu = document.getElementById('menu');

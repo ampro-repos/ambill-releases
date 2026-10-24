@@ -116,20 +116,25 @@
   .hero-shot img { display:block; width:100%; height:auto; }
   .hero-shot { max-width:660px; margin-left:auto; }
 
-  /* ---------- product tour ---------- */
-  .tour { display:grid; grid-template-columns:340px minmax(0,1fr); gap:40px; align-items:start; }
-  .tour-list { display:grid; gap:8px; }
-  .tour-item { text-align:left; font:inherit; background:var(--bg); border:1px solid var(--line); border-radius:12px; padding:16px 18px; cursor:pointer; transition:border-color .15s, box-shadow .15s; }
-  .tour-item b { display:block; font-size:16.5px; font-weight:600; color:var(--ink); margin-bottom:3px; }
-  .tour-item span { display:block; font-size:14.5px; color:var(--muted); line-height:1.5; }
-  .tour-item:hover { border-color:var(--line-2); }
-  .tour-item[aria-selected="true"] { border-color:var(--accent); box-shadow:inset 3px 0 0 var(--accent), var(--shadow); }
-  .tour-view { background:var(--bg-alt); border:1px solid var(--line); border-radius:14px; padding:18px; }
-  .tour-view .frame { background:#fff; border-radius:10px; overflow:hidden; border:1px solid var(--line-2); box-shadow:var(--shadow); }
-  .tour-view img { display:block; width:100%; height:auto; }
-  .tour-view .cap { margin:14px 4px 2px; font-size:14px; color:var(--muted); }
-  .tour-view .cap.small { font-size:13px; }
-  .tour-view .frame.narrow { max-width:520px; margin-inline:auto; }
+  /* ---------- product tour (slider) ---------- */
+  .slider { max-width:1040px; margin:0 auto; position:relative; outline:none; }
+  .viewport { overflow:hidden; border-radius:16px; background:var(--bg-alt); border:1px solid var(--line); box-shadow:var(--shadow); }
+  .track { display:flex; transition:transform .6s cubic-bezier(.22,.7,.2,1); will-change:transform; }
+  .slide { flex:0 0 100%; margin:0; min-width:0; }
+  .stage { aspect-ratio:16/10; background:linear-gradient(180deg,var(--bg-alt),var(--bg)); display:flex; align-items:center; justify-content:center; padding:22px; }
+  .stage img { max-width:100%; max-height:100%; width:auto; height:auto; border-radius:8px; border:1px solid var(--line-2); box-shadow:0 10px 34px rgba(11,27,51,.18); background:#fff; }
+  .slide figcaption { padding:16px 24px 20px; border-top:1px solid var(--line); background:var(--bg); }
+  .slide figcaption b { font-size:18px; font-weight:600; letter-spacing:-.01em; margin-right:10px; }
+  .slide figcaption p { margin:6px 0 0; color:var(--muted); font-size:15.5px; }
+  .stag { display:inline-block; font-size:11.5px; font-weight:600; letter-spacing:.05em; text-transform:uppercase; border-radius:999px; padding:2px 10px; vertical-align:2px; background:var(--blue-soft); color:var(--blue); }
+  .stag.real { background:var(--ok-soft); color:var(--ok); }
+  .sl-btn { position:absolute; top:calc(50% - 60px); width:44px; height:44px; border-radius:50%; border:1px solid var(--line-2); background:var(--bg); color:var(--ink); cursor:pointer; font-size:22px; line-height:1; box-shadow:var(--shadow); display:flex; align-items:center; justify-content:center; transition:background .15s; z-index:2; }
+  .sl-btn:hover { background:var(--bg-alt); } .sl-prev { left:-22px; } .sl-next { right:-22px; }
+  .sl-bar { height:3px; background:var(--line); border-radius:2px; margin-top:14px; overflow:hidden; } .sl-bar i { display:block; height:100%; width:0; background:var(--accent); }
+  .chips { display:flex; flex-wrap:wrap; justify-content:center; gap:8px; margin-top:16px; }
+  .chip { font:inherit; font-size:14px; font-weight:500; color:var(--ink-2); background:var(--bg); border:1px solid var(--line-2); border-radius:999px; padding:8px 16px; cursor:pointer; transition:background .15s, border-color .15s; }
+  .chip:hover { background:var(--bg-alt); } .chip[aria-selected="true"] { background:var(--navy-2); border-color:var(--navy-2); color:#fff; }
+  .slider-note { text-align:center; color:var(--muted); font-size:13.5px; margin-top:14px; }
 
   /* ---------- sections ---------- */
   section { padding:92px 0; }
@@ -244,7 +249,7 @@
   footer .legal { margin-top:44px; padding-top:22px; border-top:1px solid rgba(255,255,255,.1); display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap; font-size:13.5px; }
 
   @media (max-width:1020px) {
-    .tour { grid-template-columns:1fr; } .tour-list { grid-template-columns:repeat(2,1fr); }
+    .sl-prev { left:8px; } .sl-next { right:8px; }
     .hero .wrap { grid-template-columns:1fr; gap:44px; padding-top:60px; padding-bottom:64px; }
     .band .wrap { grid-template-columns:repeat(3,1fr); } .band .it:nth-child(4) { border-left:0; } .band .it { border-top:1px solid var(--line); } .band .it:nth-child(-n+3) { border-top:0; }
     .pillars, .prods, .sec, .caps.show, .req { grid-template-columns:1fr; } .pil { border-left:0; border-top:1px solid var(--line); } .pil:first-child { border-top:0; }
@@ -257,7 +262,7 @@
     .menu.open { display:flex; } .drop { position:static; display:block; box-shadow:none; border:0; padding:0 0 0 10px; min-width:0; }
     .burger { display:block; margin-left:auto; } .nav .right { display:none; } .util .wrap > span:last-child { display:none; }
     .band .wrap { grid-template-columns:1fr 1fr; } .band .it { border-left:0 !important; border-top:1px solid var(--line) !important; } .band .it:nth-child(-n+2) { border-top:0 !important; }
-    .tour-list { grid-template-columns:1fr; }
+    .stage { padding:8px; } .slide figcaption { padding:14px 16px 18px; } .sl-btn { width:38px; height:38px; top:calc(50% - 70px); }
     .roll { grid-template-columns:1fr; } .shot .app { grid-template-columns:84px minmax(0,1fr); } .shot .k strong { font-size:15px; } .shot .k em { display:none; }
     .dl-head { display:none; } .dl-row { grid-template-columns:1fr 1fr; gap:6px 14px; padding:18px 18px 12px; } .c-name { grid-column:1 / -1; } .c-act { grid-column:1 / -1; justify-content:flex-start; margin-top:8px; } .older { padding:0 18px 16px; }
     .prod { padding:26px; } footer .cols { grid-template-columns:1fr; }
@@ -398,21 +403,22 @@
 
 <section id="tour">
   <div class="wrap">
-    <div class="sh"><div class="eyebrow">Product tour</div><h2>See ambill at work</h2><p>Screens from the application, shown with demonstration data.</p></div>
-    <div class="tour">
-      <div class="tour-list" role="tablist" id="ttabs">
-        <button class="tour-item" role="tab" aria-selected="true" data-img="dashboard-full.jpg" data-w="1536" data-h="912" data-narrow="0" data-illus="1" data-alt="The ambill home dashboard" data-cap="Your business at a glance: bank and cash balance, profit, payables and receivables, cash flow, balance sheet snapshot, ledger health and top trading partners, with one-key shortcuts alongside."><b>See your business at a glance</b><span>Balances, profit, payables and receivables, cash flow and ledger health on the home screen.</span></button>
-        <button class="tour-item" role="tab" aria-selected="false" data-img="login.jpg" data-w="1100" data-h="878" data-narrow="0" data-alt="The ambill sign-in screen with the GST and TDS due-date calendar" data-cap="One login for all your companies. The sign-in screen keeps the next GSTR-1, GSTR-3B and TDS due dates in view."><b>Sign in and stay on top of due dates</b><span>One login for every company, with the GST and TDS calendar on the first screen.</span></button>
-        <button class="tour-item" role="tab" aria-selected="false" data-img="sales-voucher.jpg" data-w="888" data-h="378" data-narrow="0" data-alt="The ambill sales voucher screen" data-cap="Sales voucher with GST group details, tax analysis, shipping address, invoice search and e-Invoice (F11) on one screen."><b>Raise GST sales vouchers</b><span>Tax analysis, shipping details, invoice search and e-Invoice from the same screen.</span></button>
-        <button class="tour-item" role="tab" aria-selected="false" data-img="payments.jpg" data-w="1070" data-h="238" data-narrow="0" data-alt="The ambill payment allocation screen" data-cap="Allocate payments by party, print cheques and RTGS lists, set limits and post the bank transactions in one pass."><b>Allocate payments in bulk</b><span>Cheque and RTGS lists, limits and posting to the bank, together.</span></button>
-        <button class="tour-item" role="tab" aria-selected="false" data-img="quick-access.jpg" data-w="506" data-h="584" data-narrow="1" data-alt="The ambill quick-access shortcuts" data-cap="One-key shortcuts to the screens used every day: party ledgers, akada entry, proforma invoice, builty sales and purchase, payment list, purchase report and trial balance."><b>Reach daily screens with one key</b><span>Shortcuts for ledgers, invoices, payments and reports.</span></button>
-      </div>
-      <div class="tour-view">
-        <div class="frame" id="tframe"><img id="timg" src="../assets/screens/dashboard-full.jpg" width="1536" height="912" alt="The ambill home dashboard"></div>
-        <p class="cap" id="tcap">Your business at a glance: bank and cash balance, profit, payables and receivables, cash flow, balance sheet snapshot, ledger health and top trading partners, with one-key shortcuts alongside.</p>
-        <p class="cap small" id="tnote">The dashboard is an illustration in ambill's own style with sample figures.</p>
-      </div>
+    <div class="sh center"><div class="eyebrow">Product tour</div><h2>See ambill at work</h2><p>Slide through the screens your team uses every day.</p></div>
+    <div class="slider" id="slider" tabindex="0" role="region" aria-roledescription="carousel" aria-label="ambill screens">
+      <div class="viewport"><div class="track" id="track">
+        <figure class="slide" role="group" aria-roledescription="slide" aria-label="1 of 6"><div class="stage"><img src="../assets/screens/dashboard-full.jpg" width="1536" height="912" alt="The ambill home dashboard"></div><figcaption><b>See your business at a glance</b><span class="stag">Illustration</span><p>Bank and cash balance, profit, payables and receivables, cash flow, a balance sheet snapshot, ledger health and top trading partners on the home screen, with one-key shortcuts alongside.</p></figcaption></figure>
+        <figure class="slide" role="group" aria-roledescription="slide" aria-label="2 of 6"><div class="stage"><img src="../assets/screens/form-sales.jpg" width="1100" height="690" alt="The ambill sales voucher screen"></div><figcaption><b>Raise GST sales vouchers</b><span class="stag">Illustration</span><p>Party and sales ledger, GST group details, transport details and item lines with tax, plus tax analysis, invoice search and e-Invoice (F11) from the same screen.</p></figcaption></figure>
+        <figure class="slide" role="group" aria-roledescription="slide" aria-label="3 of 6"><div class="stage"><img src="../assets/screens/form-payments.jpg" width="1100" height="690" alt="The ambill payment allocation screen"></div><figcaption><b>Pay many parties in one pass</b><span class="stag">Illustration</span><p>Choose the parties to pay, set limits, print cheques and RTGS lists, and post the bank transactions together.</p></figcaption></figure>
+        <figure class="slide" role="group" aria-roledescription="slide" aria-label="4 of 6"><div class="stage"><img src="../assets/screens/form-akada.jpg" width="1100" height="690" alt="The ambill akada entry screen"></div><figcaption><b>Record APMC lots as they arrive</b><span class="stag">Illustration</span><p>Capture lots, bags, rate per quintal, quality and weight for each party, with expenses and TDS applied and the invoice posted from the same screen.</p></figcaption></figure>
+        <figure class="slide" role="group" aria-roledescription="slide" aria-label="5 of 6"><div class="stage"><img src="../assets/screens/form-trial.jpg" width="1100" height="690" alt="The ambill trial balance screen"></div><figcaption><b>Check the books any time</b><span class="stag">Illustration</span><p>Ledger-wise debits and credits for any date range and group, with opening and closing balance views.</p></figcaption></figure>
+        <figure class="slide" role="group" aria-roledescription="slide" aria-label="6 of 6"><div class="stage"><img src="../assets/screens/login.jpg" width="1100" height="878" alt="The ambill sign-in screen with the GST and TDS due-date calendar"></div><figcaption><b>Sign in with due dates in view</b><span class="stag real">Captured from the app</span><p>One login for every company, with the next GSTR-1, GSTR-3B and TDS due dates on the first screen.</p></figcaption></figure>
+      </div></div>
+      <button class="sl-btn sl-prev" id="slprev" aria-label="Previous screen">&#8249;</button>
+      <button class="sl-btn sl-next" id="slnext" aria-label="Next screen">&#8250;</button>
+      <div class="sl-bar" aria-hidden="true"><i id="slbar"></i></div>
+      <div class="chips" role="tablist" id="chips"><button class="chip" role="tab" aria-selected="true" data-i="0">Dashboard</button><button class="chip" role="tab" aria-selected="false" data-i="1">Sales voucher</button><button class="chip" role="tab" aria-selected="false" data-i="2">Payments</button><button class="chip" role="tab" aria-selected="false" data-i="3">APMC akada entry</button><button class="chip" role="tab" aria-selected="false" data-i="4">Trial balance</button><button class="chip" role="tab" aria-selected="false" data-i="5">Sign-in</button></div>
     </div>
+    <p class="slider-note">Illustrations use ambill's own screen layouts with sample data. The sign-in screen is a capture from the application.</p>
   </div>
 </section>
 
@@ -617,18 +623,37 @@
   document.querySelectorAll('a[data-feat]').forEach(function (a) { a.addEventListener('click', function () { setTab('ftabs', a.getAttribute('data-feat')); }); });
   setTab('dtabs', 'ambill');
 
-  // product tour
-  var tabs = document.querySelectorAll('#ttabs .tour-item'), timg = document.getElementById('timg'), tcap = document.getElementById('tcap'), tframe = document.getElementById('tframe');
-  tabs.forEach(function (t) {
-    t.addEventListener('click', function () {
-      tabs.forEach(function (o) { o.setAttribute('aria-selected', o === t ? 'true' : 'false'); });
-      timg.src = '../assets/screens/' + t.getAttribute('data-img');
-      timg.width = +t.getAttribute('data-w'); timg.height = +t.getAttribute('data-h');
-      timg.alt = t.getAttribute('data-alt'); tcap.textContent = t.getAttribute('data-cap');
-      tframe.classList.toggle('narrow', t.getAttribute('data-narrow') === '1');
-      document.getElementById('tnote').textContent = t.getAttribute('data-illus') === '1' ? 'The dashboard is an illustration in ambill\'s own style with sample figures.' : 'Captured from the application with demonstration data.';
-    });
-  });
+  // product tour slider
+  (function () {
+    var slider = document.getElementById('slider'), track = document.getElementById('track'), chips = document.querySelectorAll('#chips .chip'),
+        bar = document.getElementById('slbar'), n = chips.length, i = 0, timer = null, paused = false, DELAY = 6500,
+        reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    function go(k, user) {
+      i = (k + n) % n;
+      track.style.transform = 'translateX(' + (-100 * i) + '%)';
+      chips.forEach(function (c, j) { c.setAttribute('aria-selected', j === i ? 'true' : 'false'); });
+      restart();
+    }
+    function restart() {
+      clearTimeout(timer); bar.style.transition = 'none'; bar.style.width = '0';
+      if (reduce || paused) return;
+      void bar.offsetWidth; bar.style.transition = 'width ' + DELAY + 'ms linear'; bar.style.width = '100%';
+      timer = setTimeout(function () { go(i + 1); }, DELAY);
+    }
+    function pause() { paused = true; clearTimeout(timer); bar.style.transition = 'none'; bar.style.width = '0'; }
+    function resume() { paused = false; restart(); }
+    document.getElementById('slprev').addEventListener('click', function () { go(i - 1); });
+    document.getElementById('slnext').addEventListener('click', function () { go(i + 1); });
+    chips.forEach(function (c) { c.addEventListener('click', function () { go(+c.getAttribute('data-i')); }); });
+    slider.addEventListener('mouseenter', pause); slider.addEventListener('mouseleave', resume);
+    slider.addEventListener('focusin', pause); slider.addEventListener('focusout', resume);
+    slider.addEventListener('keydown', function (e) { if (e.key === 'ArrowLeft') go(i - 1); else if (e.key === 'ArrowRight') go(i + 1); });
+    var x0 = null;
+    slider.addEventListener('pointerdown', function (e) { x0 = e.clientX; });
+    slider.addEventListener('pointerup', function (e) { if (x0 !== null && Math.abs(e.clientX - x0) > 50) go(i + (e.clientX < x0 ? 1 : -1)); x0 = null; });
+    document.addEventListener('visibilitychange', function () { document.hidden ? pause() : resume(); });
+    restart();
+  })();
 
   // mobile menu
   var burger = document.getElementById('burger'), menu = document.getElementById('menu');

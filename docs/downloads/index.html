@@ -134,6 +134,8 @@
   .chips { display:flex; flex-wrap:wrap; justify-content:center; gap:8px; margin-top:16px; }
   .chip { font:inherit; font-size:14px; font-weight:500; color:var(--ink-2); background:var(--bg); border:1px solid var(--line-2); border-radius:999px; padding:8px 16px; cursor:pointer; transition:background .15s, border-color .15s; }
   .chip:hover { background:var(--bg-alt); } .chip[aria-selected="true"] { background:var(--navy-2); border-color:var(--navy-2); color:#fff; }
+  .tour-switch { margin:0 0 26px; } .tour-switch .chip { font-size:15px; padding:10px 20px; }
+  [hidden] { display:none !important; }
   .slider-note { text-align:center; color:var(--muted); font-size:13.5px; margin-top:14px; }
 
   /* ---------- sections ---------- */
@@ -238,6 +240,7 @@
   /* support band */
   .help { background:var(--navy); color:#fff; padding:64px 0; }
   .help .wrap { display:flex; justify-content:space-between; align-items:center; gap:32px; flex-wrap:wrap; }
+  .help-contact { font-size:16px; line-height:1.7; } .help-contact a:not(.btn) { color:#fff; }
   .help h2 { margin:0 0 8px; font-size:30px; font-weight:600; letter-spacing:-.02em; } .help p { margin:0; color:#b4c6e4; font-size:17px; max-width:620px; }
 
   /* footer */
@@ -298,7 +301,7 @@
   <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16 M4 12h16 M4 17h16"/></symbol>
 </svg>
 
-<div class="util"><div class="wrap"><span><b>ampro</b> &middot; Business software for India</span><span>Latest release <b>v26.1.3</b> &middot; 24 Oct 2026</span></div></div>
+<div class="util"><div class="wrap"><span><b>ampro</b> &middot; Business software for India</span><span>Latest release <b>v1.0.0</b> &middot; 25 Oct 2026</span></div></div>
 
 <nav class="nav" aria-label="Main">
   <div class="wrap">
@@ -403,7 +406,9 @@
 
 <section id="tour">
   <div class="wrap">
-    <div class="sh center"><div class="eyebrow">Product tour</div><h2>See ambill at work</h2><p>Slide through the screens your team uses every day.</p></div>
+    <div class="sh center"><div class="eyebrow">Product tour</div><h2>See our products at work</h2><p>Slide through the screens your team uses every day.</p></div>
+    <div class="chips tour-switch" role="tablist" aria-label="Product"><button class="chip" role="tab" id="tsw-ambill" aria-selected="true">ambill &middot; Trading &amp; accounts</button><button class="chip" role="tab" id="tsw-amfreezer" aria-selected="false">amfreezer &middot; Cold storage</button></div>
+    <div id="pane-ambill">
     <div class="slider" id="slider" tabindex="0" role="region" aria-roledescription="carousel" aria-label="ambill screens">
       <div class="viewport"><div class="track" id="track">
         <figure class="slide" role="group" aria-roledescription="slide" aria-label="1 of 6"><div class="stage"><img src="../assets/screens/dashboard-full.jpg" width="1536" height="912" alt="The ambill home dashboard"></div><figcaption><b>See your business at a glance</b><span class="stag">Illustration</span><p>Bank and cash balance, profit, payables and receivables, cash flow, a balance sheet snapshot, ledger health and top trading partners on the home screen, with one-key shortcuts alongside.</p></figcaption></figure>
@@ -419,6 +424,23 @@
       <div class="chips" role="tablist" id="chips"><button class="chip" role="tab" aria-selected="true" data-i="0">Dashboard</button><button class="chip" role="tab" aria-selected="false" data-i="1">Sales voucher</button><button class="chip" role="tab" aria-selected="false" data-i="2">Payments</button><button class="chip" role="tab" aria-selected="false" data-i="3">APMC akada entry</button><button class="chip" role="tab" aria-selected="false" data-i="4">Trial balance</button><button class="chip" role="tab" aria-selected="false" data-i="5">Sign-in</button></div>
     </div>
     <p class="slider-note">Illustrations use ambill's own screen layouts with sample data. The sign-in screen is a capture from the application.</p>
+    </div>
+    <div id="pane-amfreezer" hidden>
+    <div class="slider" id="f-slider" tabindex="0" role="region" aria-roledescription="carousel" aria-label="amfreezer screens">
+      <div class="viewport"><div class="track" id="f-track">
+        <figure class="slide" role="group" aria-roledescription="slide" aria-label="1 of 5"><div class="stage"><img src="../assets/screens/amf-ack.jpg" width="1100" height="690" alt="The amfreezer ACK creation screen" loading="lazy"></div><figcaption><b>Receive goods against an ACK</b><span class="stag">Illustration</span><p>Record each lot a party brings in - commodity, variety, vehicle and weigh slip - and place it by chamber and floor, with chamber occupancy visible as you go.</p></figcaption></figure>
+        <figure class="slide" role="group" aria-roledescription="slide" aria-label="2 of 5"><div class="stage"><img src="../assets/screens/amf-stock.jpg" width="1100" height="690" alt="The amfreezer chamber-wise stock screen" loading="lazy"></div><figcaption><b>See stock chamber by chamber</b><span class="stag">Illustration</span><p>Bags and weight by chamber, commodity and variety as on any date, with occupancy and alerts for chambers that are filling up.</p></figcaption></figure>
+        <figure class="slide" role="group" aria-roledescription="slide" aria-label="3 of 5"><div class="stage"><img src="../assets/screens/amf-rent.jpg" width="1100" height="690" alt="The amfreezer rent invoice screen" loading="lazy"></div><figcaption><b>Bill rent automatically</b><span class="stag">Illustration</span><p>Rent worked out from what was stored and for how long under the chosen tariff, with handling charges and GST, ready to print or email.</p></figcaption></figure>
+        <figure class="slide" role="group" aria-roledescription="slide" aria-label="4 of 5"><div class="stage"><img src="../assets/screens/amf-trial.jpg" width="1100" height="690" alt="The amfreezer trial balance screen" loading="lazy"></div><figcaption><b>Keep the books alongside</b><span class="stag">Illustration</span><p>Party ledgers, rent and handling income and expenses roll into a trial balance for any date range and group.</p></figcaption></figure>
+        <figure class="slide" role="group" aria-roledescription="slide" aria-label="5 of 5"><div class="stage"><img src="../assets/screens/amf-login.jpg" width="1100" height="690" alt="The amfreezer sign-in screen" loading="lazy"></div><figcaption><b>One sign-in for every company</b><span class="stag real">Captured from the app</span><p>The first screen of amfreezer: ACK and delivery management, chamber-wise stock tracking, rent billing and party management.</p></figcaption></figure>
+      </div></div>
+      <button class="sl-btn sl-prev" id="f-slprev" aria-label="Previous screen">&#8249;</button>
+      <button class="sl-btn sl-next" id="f-slnext" aria-label="Next screen">&#8250;</button>
+      <div class="sl-bar" aria-hidden="true"><i id="f-slbar"></i></div>
+      <div class="chips" role="tablist" id="f-chips"><button class="chip" role="tab" aria-selected="true" data-i="0">ACK creation</button><button class="chip" role="tab" aria-selected="false" data-i="1">Chamber stock</button><button class="chip" role="tab" aria-selected="false" data-i="2">Rent invoice</button><button class="chip" role="tab" aria-selected="false" data-i="3">Trial balance</button><button class="chip" role="tab" aria-selected="false" data-i="4">Sign-in</button></div>
+    </div>
+    <p class="slider-note">Illustrations use amfreezer's own screen layouts with sample data. The sign-in screen is a capture from the application.</p>
+    </div>
   </div>
 </section>
 
@@ -556,7 +578,42 @@
         </div>
       </div>
       <div class="panel" data-panel="amfreezer">
-        <div class="soon"><strong>amfreezer installer coming soon</strong>The first installer has not been published yet. Contact your ampro representative to get started.</div>
+        <div class="dl-item rec">
+          <div class="dl-row">
+            <div class="c-name"><b>amfreezer 2026-27<span class="pillt">Recommended</span></b><small>Current financial year</small></div>
+            <div class="c-ver">v1.0.0</div>
+            <div class="c-date">2026-10-25</div>
+            <div class="c-size">40 MB</div>
+            <div class="c-act"><a class="btn btn-primary btn-sm" href="https://github.com/ampro-repos/ambill-releases/releases/download/amfreezer/amfreezer_26_27/v1.0.0/amfreezer_26_27-Setup.exe"><svg class="ic"><use href="#i-down"/></svg>Download</a><a class="lnk" href="https://github.com/ampro-repos/ambill-releases/releases/tag/amfreezer/amfreezer_26_27/v1.0.0">Release notes</a></div>
+          </div>
+        </div>
+        <div class="dl-item">
+          <div class="dl-row">
+            <div class="c-name"><b>amfreezer &middot; all years</b><small>Generic edition. Choose the financial year or years during setup.</small></div>
+            <div class="c-ver">v1.0.0</div>
+            <div class="c-date">2026-10-25</div>
+            <div class="c-size">40 MB</div>
+            <div class="c-act"><a class="btn btn-primary btn-sm" href="https://github.com/ampro-repos/ambill-releases/releases/download/amfreezer/Generic/v1.0.0/amfreezer-Setup.exe"><svg class="ic"><use href="#i-down"/></svg>Download</a><a class="lnk" href="https://github.com/ampro-repos/ambill-releases/releases/tag/amfreezer/Generic/v1.0.0">Release notes</a></div>
+          </div>
+        </div>
+        <div class="dl-item">
+          <div class="dl-row">
+            <div class="c-name"><b>amfreezer 2027-28</b><small>Financial-year edition</small></div>
+            <div class="c-ver">v1.0.0</div>
+            <div class="c-date">2026-10-25</div>
+            <div class="c-size">40 MB</div>
+            <div class="c-act"><a class="btn btn-primary btn-sm" href="https://github.com/ampro-repos/ambill-releases/releases/download/amfreezer/amfreezer_27_28/v1.0.0/amfreezer_27_28-Setup.exe"><svg class="ic"><use href="#i-down"/></svg>Download</a><a class="lnk" href="https://github.com/ampro-repos/ambill-releases/releases/tag/amfreezer/amfreezer_27_28/v1.0.0">Release notes</a></div>
+          </div>
+        </div>
+        <div class="dl-item">
+          <div class="dl-row">
+            <div class="c-name"><b>amfreezer 2025-26</b><small>Financial-year edition</small></div>
+            <div class="c-ver">v1.0.0</div>
+            <div class="c-date">2026-10-25</div>
+            <div class="c-size">40 MB</div>
+            <div class="c-act"><a class="btn btn-primary btn-sm" href="https://github.com/ampro-repos/ambill-releases/releases/download/amfreezer/amfreezer_25_26/v1.0.0/amfreezer_25_26-Setup.exe"><svg class="ic"><use href="#i-down"/></svg>Download</a><a class="lnk" href="https://github.com/ampro-repos/ambill-releases/releases/tag/amfreezer/amfreezer_25_26/v1.0.0">Release notes</a></div>
+          </div>
+        </div>
       </div>
 
     </div>
@@ -593,7 +650,7 @@
 <div class="help">
   <div class="wrap">
     <div><h2>Need help choosing or installing?</h2><p>Your ampro representative can help you pick the right edition, plan your rollout and move existing data across.</p></div>
-    <a class="btn btn-primary" href="#download">Go to downloads</a>
+    <div class="help-contact"><b>Mahantesh C Ankalakoti</b><br><a href="tel:+918088677370">+91 80886 77370</a><br><a href="mailto:mankalakoti@gmail.com">mankalakoti@gmail.com</a><br><a class="btn btn-primary" href="#download" style="margin-top:14px">Go to downloads</a></div>
   </div>
 </div>
 
@@ -603,9 +660,9 @@
       <div><a class="brand" href="#top"><img src="../assets/amprologo.png" alt="">ampro</a><p>Accounting, GST compliance and cold storage software for Indian businesses.</p></div>
       <div><h5>Products</h5><ul><li><a href="#products">ambill</a></li><li><a href="#products">amfreezer</a></li><li><a href="#capabilities">Capabilities</a></li></ul></div>
       <div><h5>Get started</h5><ul><li><a href="#download">Download center</a></li><li><a href="#rollout">Rollout</a></li><li><a href="#download">System requirements</a></li></ul></div>
-      <div><h5>Resources</h5><ul><li><a href="https://github.com/ampro-repos/ambill-releases/releases">Release notes</a></li><li><a href="#security">Security &amp; deployment</a></li><li><a href="#faq">Support</a></li></ul></div>
+      <div><h5>Resources</h5><ul><li><a href="https://github.com/ampro-repos/ambill-releases/releases">Release notes</a></li><li><a href="#security">Security &amp; deployment</a></li><li><a href="#faq">Support</a></li><li><a href="mailto:mankalakoti@gmail.com">mankalakoti@gmail.com</a></li></ul></div>
     </div>
-    <div class="legal"><span>&copy; 2026 ampro. All rights reserved.</span><span>Page updated 24 Oct 2026 &middot; Latest release v26.1.3</span></div>
+    <div class="legal"><span>&copy; 2026 ampro. All rights reserved.</span><span>Page updated 25 Oct 2026 &middot; Latest release v1.0.0</span></div>
   </div>
 </footer>
 
@@ -624,9 +681,10 @@
   setTab('dtabs', 'ambill');
 
   // product tour slider
-  (function () {
-    var slider = document.getElementById('slider'), track = document.getElementById('track'), chips = document.querySelectorAll('#chips .chip'),
-        bar = document.getElementById('slbar'), n = chips.length, i = 0, timer = null, paused = false, DELAY = 6500,
+  var tours = {};
+  function initSlider(p, key) {
+    var slider = document.getElementById(p + 'slider'), track = document.getElementById(p + 'track'), chips = document.querySelectorAll('#' + p + 'chips .chip'),
+        bar = document.getElementById(p + 'slbar'), n = chips.length, i = 0, timer = null, paused = false, DELAY = 6500,
         reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     function go(k, user) {
       i = (k + n) % n;
@@ -636,14 +694,14 @@
     }
     function restart() {
       clearTimeout(timer); bar.style.transition = 'none'; bar.style.width = '0';
-      if (reduce || paused) return;
+      if (reduce || paused || !slider.offsetParent) return;
       void bar.offsetWidth; bar.style.transition = 'width ' + DELAY + 'ms linear'; bar.style.width = '100%';
       timer = setTimeout(function () { go(i + 1); }, DELAY);
     }
     function pause() { paused = true; clearTimeout(timer); bar.style.transition = 'none'; bar.style.width = '0'; }
     function resume() { paused = false; restart(); }
-    document.getElementById('slprev').addEventListener('click', function () { go(i - 1); });
-    document.getElementById('slnext').addEventListener('click', function () { go(i + 1); });
+    document.getElementById(p + 'slprev').addEventListener('click', function () { go(i - 1); });
+    document.getElementById(p + 'slnext').addEventListener('click', function () { go(i + 1); });
     chips.forEach(function (c) { c.addEventListener('click', function () { go(+c.getAttribute('data-i')); }); });
     slider.addEventListener('mouseenter', pause); slider.addEventListener('mouseleave', resume);
     slider.addEventListener('focusin', pause); slider.addEventListener('focusout', resume);
@@ -652,8 +710,21 @@
     slider.addEventListener('pointerdown', function (e) { x0 = e.clientX; });
     slider.addEventListener('pointerup', function (e) { if (x0 !== null && Math.abs(e.clientX - x0) > 50) go(i + (e.clientX < x0 ? 1 : -1)); x0 = null; });
     document.addEventListener('visibilitychange', function () { document.hidden ? pause() : resume(); });
+    tours[key] = { resume: resume, pause: pause };
     restart();
-  })();
+  }
+  initSlider('', 'ambill');
+  initSlider('f-', 'amfreezer');
+  function tourPane(k) {
+    ['ambill', 'amfreezer'].forEach(function (n) {
+      var on = n === k; document.getElementById('pane-' + n).hidden = !on;
+      document.getElementById('tsw-' + n).setAttribute('aria-selected', on ? 'true' : 'false');
+      if (on) tours[n].resume(); else tours[n].pause();
+    });
+  }
+  document.getElementById('tsw-ambill').addEventListener('click', function () { tourPane('ambill'); });
+  document.getElementById('tsw-amfreezer').addEventListener('click', function () { tourPane('amfreezer'); });
+
 
   // mobile menu
   var burger = document.getElementById('burger'), menu = document.getElementById('menu');

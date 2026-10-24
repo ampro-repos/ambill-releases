@@ -120,6 +120,7 @@
   .hs-slide { position:absolute; inset:0; opacity:0; transform:translateX(3%); transition:opacity .7s ease, transform .9s cubic-bezier(.22,.7,.2,1); display:flex; align-items:center; justify-content:center; }
   .hs-slide.on { opacity:1; transform:none; }
   .hs-slide img { width:100%; height:100%; object-fit:contain; display:block; }
+  @media (prefers-reduced-motion: reduce) { .hs-slide { transform:none; transition:opacity .4s ease; } .track { transition:none; } }
   .hs-dots { display:flex; justify-content:center; gap:8px; padding:10px 0; background:#e9eef6; border-top:1px solid #d6deea; }
   .hs-dot { width:8px; height:8px; padding:0; border-radius:50%; border:0; background:#b7c3d8; cursor:pointer; } .hs-dot.on { background:#f7941d; width:22px; border-radius:6px; }
 
@@ -697,7 +698,7 @@
     var slides = box.querySelectorAll(".hs-slide"), dots = box.querySelectorAll(".hs-dot"), cap = document.getElementById("hscap"), i = 0, t = null,
         reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     function show(k) { i = (k + slides.length) % slides.length; slides.forEach(function (e, j) { e.classList.toggle("on", j === i); dots[j].classList.toggle("on", j === i); }); cap.innerHTML = slides[i].getAttribute("data-cap"); }
-    function start() { if (reduce) return; clearInterval(t); t = setInterval(function () { show(i + 1); }, 4200); }
+    function start() { clearInterval(t); t = setInterval(function () { show(i + 1); }, 4200); }
     dots.forEach(function (d, j) { d.addEventListener("click", function () { show(j); start(); }); });
     box.addEventListener("mouseenter", function () { clearInterval(t); }); box.addEventListener("mouseleave", start);
     document.addEventListener("visibilitychange", function () { document.hidden ? clearInterval(t) : start(); });
@@ -718,7 +719,7 @@
     }
     function restart() {
       clearTimeout(timer); bar.style.transition = 'none'; bar.style.width = '0';
-      if (reduce || paused || !slider.offsetParent) return;
+      if (paused || !slider.offsetParent) return;
       void bar.offsetWidth; bar.style.transition = 'width ' + DELAY + 'ms linear'; bar.style.width = '100%';
       timer = setTimeout(function () { go(i + 1); }, DELAY);
     }

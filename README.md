@@ -1,5 +1,7 @@
 # ambill releases
 
+**Download page:** https://ampro-repos.github.io/ambill-releases/downloads/
+
 Pick the product, then **Generic** (one app, choose the year in the setup wizard) or a **financial-year** app (one app per year, side by side). Download the installer and run it; the setup wizard starts on first launch.
 
 > The installers are not code-signed yet, so Edge/Windows may warn that the file is not commonly downloaded. Choose **Keep**, then **Run anyway**.

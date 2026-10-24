@@ -115,6 +115,13 @@
   .hero-shot .chrome i { width:10px; height:10px; border-radius:50%; background:#c1cbdc; }
   .hero-shot img { display:block; width:100%; height:auto; }
   .hero-shot { max-width:660px; margin-left:auto; }
+  .hero-shot .chrome { align-items:center; } .hs-cap { margin-left:auto; font-size:12.5px; font-weight:600; color:#4a5f7f; letter-spacing:.01em; }
+  .hs-stage { position:relative; aspect-ratio:1100/720; background:#eaf0f7; overflow:hidden; }
+  .hs-slide { position:absolute; inset:0; opacity:0; transform:translateX(3%); transition:opacity .7s ease, transform .9s cubic-bezier(.22,.7,.2,1); display:flex; align-items:center; justify-content:center; }
+  .hs-slide.on { opacity:1; transform:none; }
+  .hs-slide img { width:100%; height:100%; object-fit:contain; display:block; }
+  .hs-dots { display:flex; justify-content:center; gap:8px; padding:10px 0; background:#e9eef6; border-top:1px solid #d6deea; }
+  .hs-dot { width:8px; height:8px; padding:0; border-radius:50%; border:0; background:#b7c3d8; cursor:pointer; } .hs-dot.on { background:#f7941d; width:22px; border-radius:6px; }
 
   /* ---------- product tour (slider) ---------- */
   .slider { max-width:1040px; margin:0 auto; position:relative; outline:none; }
@@ -341,11 +348,11 @@
       </div>
     </div>
     <div>
-      <figure class="hero-shot">
-        <div class="chrome"><i></i><i></i><i></i></div>
-        <img src="../assets/screens/dashboard-cards.jpg" width="967" height="800" alt="The ambill home dashboard with bank and cash balance, profit, payables, receivables, cash flow and balance sheet snapshot">
+      <figure class="hero-shot" id="heroshot" aria-roledescription="carousel" aria-label="Product screens">
+        <div class="chrome"><i></i><i></i><i></i><span class="hs-cap" id="hscap">ambill &middot; Home dashboard</span></div>
+        <div class="hs-stage"><div class="hs-slide on" data-cap="ambill &middot; Home dashboard"><img src="../assets/screens/dashboard-cards.jpg" alt="The ambill home dashboard"></div><div class="hs-slide" data-cap="ambill &middot; Sales voucher"><img src="../assets/screens/form-sales.jpg" alt="The ambill sales voucher screen" loading="lazy"></div><div class="hs-slide" data-cap="ambill &middot; APMC akada entry"><img src="../assets/screens/form-akada.jpg" alt="The ambill akada entry screen" loading="lazy"></div><div class="hs-slide" data-cap="amfreezer &middot; ACK creation"><img src="../assets/screens/amf-ack.jpg" alt="The amfreezer ACK creation screen" loading="lazy"></div><div class="hs-slide" data-cap="amfreezer &middot; Chamber-wise stock"><img src="../assets/screens/amf-stock.jpg" alt="The amfreezer chamber-wise stock screen" loading="lazy"></div><div class="hs-slide" data-cap="amfreezer &middot; Rent invoice"><img src="../assets/screens/amf-rent.jpg" alt="The amfreezer rent invoice screen" loading="lazy"></div></div>
+        <div class="hs-dots"><button type="button" class="hs-dot on" aria-label="Show screen 1"></button><button type="button" class="hs-dot" aria-label="Show screen 2"></button><button type="button" class="hs-dot" aria-label="Show screen 3"></button><button type="button" class="hs-dot" aria-label="Show screen 4"></button><button type="button" class="hs-dot" aria-label="Show screen 5"></button><button type="button" class="hs-dot" aria-label="Show screen 6"></button></div>
       </figure>
-      <div class="shot-cap">The ambill home dashboard (illustration with sample figures)</div>
     </div>
   </div>
 </header>
@@ -683,6 +690,19 @@
   document.querySelectorAll('a[data-pick]').forEach(function (a) { a.addEventListener('click', function () { setTab('dtabs', a.getAttribute('data-pick')); }); });
   document.querySelectorAll('a[data-feat]').forEach(function (a) { a.addEventListener('click', function () { setTab('ftabs', a.getAttribute('data-feat')); }); });
   setTab('dtabs', 'ambill');
+
+  // hero slideshow
+  (function () {
+    var box = document.getElementById("heroshot"); if (!box) return;
+    var slides = box.querySelectorAll(".hs-slide"), dots = box.querySelectorAll(".hs-dot"), cap = document.getElementById("hscap"), i = 0, t = null,
+        reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    function show(k) { i = (k + slides.length) % slides.length; slides.forEach(function (e, j) { e.classList.toggle("on", j === i); dots[j].classList.toggle("on", j === i); }); cap.innerHTML = slides[i].getAttribute("data-cap"); }
+    function start() { if (reduce) return; clearInterval(t); t = setInterval(function () { show(i + 1); }, 4200); }
+    dots.forEach(function (d, j) { d.addEventListener("click", function () { show(j); start(); }); });
+    box.addEventListener("mouseenter", function () { clearInterval(t); }); box.addEventListener("mouseleave", start);
+    document.addEventListener("visibilitychange", function () { document.hidden ? clearInterval(t) : start(); });
+    start();
+  })();
 
   // product tour slider
   var tours = {};

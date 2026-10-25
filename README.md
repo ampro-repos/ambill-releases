@@ -63,5 +63,6 @@ Newest generic ambill: [releases/latest](https://github.com/ampro-repos/ambill-r
 
 | Version | Date | Installer | Release |
 |---|---|---|---|
+| v1.0.3 | 2026-10-25 | [download](https://github.com/ampro-repos/ambill-releases/releases/download/amfreezer/amfreezer_25_26/v1.0.3/amfreezer_25_26-Setup.exe) | [release notes](https://github.com/ampro-repos/ambill-releases/releases/tag/amfreezer/amfreezer_25_26/v1.0.3) |
 | v1.0.2 | 2026-10-25 | [download](https://github.com/ampro-repos/ambill-releases/releases/download/amfreezer/amfreezer_25_26/v1.0.2/amfreezer_25_26-Setup.exe) | [release notes](https://github.com/ampro-repos/ambill-releases/releases/tag/amfreezer/amfreezer_25_26/v1.0.2) |
 

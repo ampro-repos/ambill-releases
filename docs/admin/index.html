@@ -1,0 +1,2471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>ambill — License Request Admin</title>
+<link rel="icon" type="image/png" href="../assets/amprologo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script>
+  // Sets the theme attribute synchronously, before first paint, so there's no flash of the
+  // wrong theme — the toggle button + periodic re-check (for "auto" to actually flip at the
+  // day/night boundary while the tab stays open) are wired later, once the DOM exists, using
+  // the exact same "auto" logic as ambillComputeAutoTheme() in the main script block below.
+  (function () {
+    try {
+      var pref = localStorage.getItem("ambill-admin-theme") || "auto";
+      var hour = new Date().getHours();
+      var auto = (hour >= 6 && hour < 18) ? "light" : "dark";
+      document.documentElement.setAttribute("data-theme", pref === "auto" ? auto : pref);
+    } catch (e) { /* localStorage unavailable (private mode etc.) — CSS default (light) applies */ }
+  })();
+</script>
+<style>
+  /* ══════════════════════════════════════════════════════════════════════════════════════
+     THEME TOKENS — :root is the light palette (default/fallback). [data-theme="dark"]
+     overrides only what needs to differ; every rule below reads colors exclusively through
+     these var()s (nothing hardcoded outside this block) so both themes stay in sync
+     automatically. data-theme is set by the inline pre-paint script in <head> (avoids a
+     flash of the wrong theme) and kept in sync by ambillApplyTheme() in the main script,
+     driven by localStorage("ambill-admin-theme") = "auto" (time-of-day, the default) |
+     "light" | "dark". --brand-navy/--brand-navy-2 are the one deliberate exception: the
+     topbar is fixed brand chrome, not content, so it stays the same dark navy in both
+     themes rather than flipping like --navy (which means "strong heading text" everywhere
+     else, and does flip). ══════════════════════════════════════════════════════════════ */
+  :root {
+    --brand-navy: #0f2a3d;
+    --brand-navy-2: #16405c;
+
+    --navy: #0f2a3d;
+    --teal: #0c8fa3;
+    --teal-light: #e6f6f9;
+    --teal-hover: #0b7f91;
+    --gold: #f4b73f;
+    --gold-dark: #d99b1f;
+
+    --bg: #f3f6f9;
+    --panel: #ffffff;
+    --surface-2: #eef1f5;
+    --surface-2-hover: #e3e8ee;
+    --surface-3: #f8fafc;
+    --surface-4: #fafbfc;
+
+    --border: #e2e8f0;
+    --border-2: #dbe2ea;
+    --border-hover: #b8c6d6;
+
+    --text: #1a2632;
+    --text-strong: #334155;
+    --text-secondary: #475569;
+    --muted: #64748b;
+    --muted-2: #94a3b8;
+
+    --danger: #e0483e;
+    --danger-bg: #fdeceb;
+    --danger-border: #f6cac6;
+    --danger-hover: #fbdcd9;
+    --success: #1a9e5c;
+    --success-bg: #e8f8ef;
+    --info: #1d5fd6;
+    --info-bg: #e0edff;
+    --warn: #a3720a;
+    --warn-bg: #fff4d6;
+    --purple: #7439c9;
+    --purple-bg: #f0e6ff;
+
+    --code-bg: #0b1e2c;
+    --code-fg: #7ef2b0;
+    --selection: #bfe8ef;
+
+    --radius: 12px;
+    --shadow: 0 1px 2px rgba(16,42,61,.06), 0 4px 16px rgba(16,42,61,.06);
+    --shadow-lg: 0 8px 30px rgba(16,42,61,.12);
+  }
+  :root[data-theme="dark"] {
+    --navy: #eef4f9;
+    --teal: #35d7e6;
+    --teal-light: #123540;
+    --teal-hover: #2bc3d1;
+    --gold: #f7c563;
+    --gold-dark: #e0a53a;
+
+    --bg: #0a1420;
+    --panel: #121e2b;
+    --surface-2: #1a2734;
+    --surface-2-hover: #23323f;
+    --surface-3: #16222e;
+    --surface-4: #182430;
+
+    --border: #24384a;
+    --border-2: #2c4256;
+    --border-hover: #3d5a72;
+
+    --text: #e7eef5;
+    --text-strong: #f2f6fa;
+    --text-secondary: #a9bdd1;
+    --muted: #91a6ba;
+    --muted-2: #6f889d;
+
+    --danger: #ff8177;
+    --danger-bg: #3a1a1a;
+    --danger-border: #5c2c29;
+    --danger-hover: #4a221f;
+    --success: #4fdb8f;
+    --success-bg: #0f2e1f;
+    --info: #7db0ff;
+    --info-bg: #142542;
+    --warn: #f2bd52;
+    --warn-bg: #3a2c10;
+    --purple: #c7a3ff;
+    --purple-bg: #291f42;
+
+    --code-bg: #060f18;
+    --code-fg: #7ef2b0;
+    --selection: #1f4750;
+
+    --shadow: 0 1px 2px rgba(0,0,0,.35), 0 4px 18px rgba(0,0,0,.4);
+    --shadow-lg: 0 16px 46px rgba(0,0,0,.55);
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  html { color-scheme: light dark; }
+  body {
+    font-family: "Inter", "Segoe UI", Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    margin: 0;
+    -webkit-font-smoothing: antialiased;
+    transition: background-color .35s ease, color .35s ease;
+  }
+  ::selection { background: var(--selection); }
+
+  /* Slim, unobtrusive scrollbars — a small but very "does someone actually care about this
+     app" detail, and one that especially shows on dark backgrounds where a default chunky
+     OS scrollbar looks out of place against a custom-themed page. */
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 6px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--muted-2); }
+
+  /* ── Top bar ── */
+  .topbar {
+    background: linear-gradient(135deg, var(--brand-navy) 0%, var(--brand-navy-2) 100%);
+    color: #fff;
+    padding: 16px 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    box-shadow: 0 2px 10px rgba(0,0,0,.15);
+    position: relative;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  /* The real applogo.png (Images/amprologo.png) used in every form's header panel across
+     the WinForms app (Login_New, Ambill_LaunchPage, ActivateLicense, ...). */
+  .app-logo { width: 38px; height: 38px; object-fit: contain; }
+  .brand-divider { width: 1px; height: 26px; background: rgba(255,255,255,.22); }
+  .brand h1 { font-size: 15px; font-weight: 700; margin: 0; letter-spacing: .01em; color: #cfe3ea; }
+  .brand .tagline { font-size: 12px; color: #a9c3d4; margin-top: 1px; }
+  .topbar-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  /* ☀️/🌙 theme toggle — cycles Auto → Light → Dark → Auto, wired in the main script.
+     Absolutely positioned against .topbar (not a flex child of .brand or #topbarAppActions)
+     so it stays put and visible on the token-setup screen too, before #topbarAppActions
+     ever un-hides — theme is a page-level preference, not an authenticated-app-only one. */
+  #themeToggleBtn { font-size: 12.5px; position: absolute; top: 14px; right: 20px; z-index: 2; }
+  @media (max-width: 640px) { #themeToggleBtn { top: 10px; right: 12px; } }
+
+  /* ── Buttons ── */
+  button {
+    font-family: inherit;
+    border: none;
+    border-radius: 8px;
+    padding: 9px 15px;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+    transition: transform .08s ease, box-shadow .15s ease, background .15s ease, opacity .15s ease;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  button:active:not(:disabled) { transform: translateY(1px); }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  .btn-primary { background: linear-gradient(135deg, var(--gold), var(--gold-dark)); color: var(--brand-navy); box-shadow: 0 2px 8px rgba(244,183,63,.4); }
+  .btn-primary:hover:not(:disabled) { box-shadow: 0 4px 14px rgba(244,183,63,.55); transform: translateY(-1px); }
+  .btn-teal { background: var(--teal); color: #fff; box-shadow: 0 2px 8px rgba(12,143,163,.35); }
+  .btn-teal:hover:not(:disabled) { background: var(--teal-hover); }
+  .btn-ghost-dark { background: rgba(255,255,255,.1); color: #fff; border: 1px solid rgba(255,255,255,.22); }
+  .btn-ghost-dark:hover:not(:disabled) { background: rgba(255,255,255,.18); }
+  .btn-secondary { background: var(--surface-2); color: var(--text-strong); }
+  .btn-secondary:hover:not(:disabled) { background: var(--surface-2-hover); }
+  .btn-danger { background: var(--danger-bg); color: var(--danger); border: 1px solid var(--danger-border); }
+  .btn-danger:hover:not(:disabled) { background: var(--danger-hover); }
+  .btn-link { background: none; color: #cfe8ee; padding: 6px 4px; text-decoration: none; font-weight: 600; font-size: 13px; }
+  .btn-link:hover { color: #fff; }
+  .icon-btn {
+    background: var(--surface-2); color: var(--text-strong); width: 34px; height: 34px; padding: 0;
+    border-radius: 8px; justify-content: center; font-size: 16px; flex-shrink: 0;
+  }
+  .icon-btn:hover:not(:disabled) { background: var(--surface-2-hover); }
+  .icon-btn.spinning { animation: spin .8s linear infinite; }
+
+  /* ── Layout ── */
+  .layout {
+    display: grid;
+    grid-template-columns: 380px 1fr;
+    gap: 20px;
+    padding: 24px 28px 40px;
+    max-width: 1360px;
+    margin: 0 auto;
+    align-items: start;
+  }
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+    /* On phones/narrow tablets, a selected request hides the list instead of pushing it
+       above the detail panel — otherwise reaching anything in the detail panel (including
+       the topbar's Refresh button) means scrolling past the whole request list every time. */
+    .layout.detail-open #listCard { display: none; }
+    .layout.detail-open #crashListCard { display: none; }
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    transition: background-color .35s ease, border-color .35s ease;
+  }
+  .panel-header {
+    padding: 16px 18px 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  .panel-title { font-size: 13px; font-weight: 700; color: var(--navy); text-transform: uppercase; letter-spacing: .05em; margin: 0 0 10px; }
+  .panel-body { padding: 14px 18px 18px; }
+
+  /* ── Filters ── */
+  .filter-bar { display: flex; flex-direction: column; gap: 8px; }
+  .filter-bar select, .filter-bar input {
+    width: 100%;
+  }
+
+  /* ── Form controls ── */
+  label { font-weight: 600; font-size: 12.5px; display: block; margin-bottom: 5px; color: var(--text-secondary); }
+  input[type=text], input[type=number], input[type=password], input[type=date], select, textarea {
+    font-family: inherit;
+    font-size: 14px;
+    padding: 9px 11px;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    width: 100%;
+    background: var(--panel);
+    color: var(--text);
+    transition: border-color .15s ease, box-shadow .15s ease, background-color .35s ease;
+  }
+  input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: var(--teal);
+    box-shadow: 0 0 0 3px rgba(12,143,163,.15);
+  }
+  input:read-only { background: var(--surface-3); color: var(--muted); }
+  textarea { resize: vertical; }
+
+  .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 16px; }
+  .field-grid .full { grid-column: 1 / -1; }
+
+  /* ── Searchable dropdown (Previous Machine ID) — a text input styled and iconed to read as
+     a select/combobox, but still freely typeable/searchable underneath. ── */
+  .dropdown-input { position: relative; }
+  .dropdown-input input { padding-right: 30px; cursor: text; }
+  .dropdown-input input:hover { border-color: var(--border-hover); }
+  .dropdown-chevron { position: absolute; right: 11px; top: 50%; transform: translateY(-50%); pointer-events: none; }
+  .autocomplete-list {
+    position: absolute; z-index: 50; left: 0; right: 0; top: 100%; margin-top: 4px;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+    box-shadow: var(--shadow-lg); max-height: 230px; overflow-y: auto;
+  }
+  .autocomplete-list .ac-item { padding: 9px 12px; cursor: pointer; border-bottom: 1px solid var(--surface-2); }
+  .autocomplete-list .ac-item:last-child { border-bottom: none; }
+  .autocomplete-list .ac-item:hover { background: var(--teal-light); }
+  .autocomplete-list .ac-company { font-weight: 600; font-size: 13px; }
+  .autocomplete-list .ac-uid { font-size: 11px; color: var(--muted); font-family: "JetBrains Mono", monospace; margin-top: 1px; }
+  .autocomplete-list .ac-empty { padding: 10px 12px; color: var(--muted); font-size: 12.5px; }
+
+  /* ── Issue list ── */
+  .issue-list { list-style: none; padding: 0; margin: 12px 0 0; display: flex; flex-direction: column; gap: 8px; max-height: 62vh; overflow-y: auto; }
+  .issue-item {
+    padding: 12px 13px;
+    border: 1.5px solid var(--border);
+    border-left: 4px solid var(--border);
+    border-radius: 9px;
+    cursor: pointer;
+    background: var(--panel);
+    transition: border-color .12s ease, background .12s ease, box-shadow .12s ease, transform .12s ease;
+  }
+  .issue-item:hover { border-color: var(--teal); box-shadow: 0 2px 10px rgba(12,143,163,.12); transform: translateY(-1px); }
+  .issue-item.selected { border-color: var(--teal); background: var(--teal-light); box-shadow: 0 2px 10px rgba(12,143,163,.15); }
+  .issue-item .company { font-weight: 700; font-size: 14px; margin-bottom: 3px; }
+  .issue-item .meta { font-size: 11.5px; color: var(--muted); }
+  .issue-item .row-between { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+
+  .badge {
+    font-size: 10.5px;
+    font-weight: 700;
+    padding: 3px 9px;
+    border-radius: 20px;
+    white-space: nowrap;
+    letter-spacing: .02em;
+    display: inline-flex; align-items: center; gap: 4px;
+  }
+  .badge::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .badge-new       { background: var(--info-bg); color: var(--info); }
+  .badge-payment   { background: var(--warn-bg); color: var(--warn); }
+  .badge-signed    { background: var(--success-bg); color: var(--success); }
+  .badge-closed    { background: var(--danger-bg); color: var(--danger); }
+  .badge-approval  { background: var(--purple-bg); color: var(--purple); }
+  .badge-fatal       { background: var(--danger-bg); color: var(--danger); }
+  .badge-recoverable { background: var(--warn-bg); color: var(--warn); }
+  .badge-unobserved  { background: var(--purple-bg); color: var(--purple); }
+  /* Already caught + shown to the user as a toast elsewhere in the app — much higher expected
+     volume than a genuine crash, so deliberately the quietest/most muted of the four, not an
+     escalating color like the others. */
+  .badge-caught      { background: var(--teal-light); color: var(--teal); }
+  .badge-ignored     { background: var(--surface-2); color: var(--muted); }
+  .issue-item.selected .issue-item-border { border-left-color: var(--teal); }
+
+  /* map status -> left border accent on the list item */
+  .issue-item[data-status="badge-new"]      { border-left-color: var(--info); }
+  .issue-item[data-status="badge-payment"]  { border-left-color: var(--warn); }
+  .issue-item[data-status="badge-signed"]   { border-left-color: var(--success); }
+  .issue-item[data-status="badge-closed"]   { border-left-color: var(--danger); }
+  .issue-item[data-status="badge-approval"] { border-left-color: var(--purple); }
+  .issue-item[data-status="badge-fatal"]       { border-left-color: var(--danger); }
+  .issue-item[data-status="badge-recoverable"] { border-left-color: var(--warn); }
+  .issue-item[data-status="badge-unobserved"]  { border-left-color: var(--purple); }
+  .issue-item[data-status="badge-caught"]      { border-left-color: var(--teal); }
+  .issue-item[data-status="badge-ignored"]     { border-left-color: var(--muted-2); }
+
+  /* ── View tabs (License Requests vs Crash Reports vs Releases) ── */
+  .tab-strip { display: flex; gap: 6px; }
+  .tab-btn.tab-active { background: var(--teal); border-color: transparent; }
+  .tab-btn.tab-active:hover { background: var(--teal-hover); }
+
+  .state-pill.ignored { background: var(--surface-2); color: var(--muted); }
+
+  .history-item {
+    border: 1px solid var(--border); border-radius: 8px; padding: 9px 12px;
+    margin-bottom: 8px; font-size: 12.5px; background: var(--surface-4);
+    transition: background-color .35s ease, border-color .35s ease;
+  }
+  .history-item .hwhen { color: var(--muted); font-size: 11.5px; margin-bottom: 3px; }
+
+  /* ── Toast ── */
+  .toast {
+    position: fixed; top: 20px; right: 20px;
+    padding: 13px 18px; border-radius: 10px; color: #fff;
+    font-size: 13.5px; font-weight: 500; z-index: 999; display: none; max-width: 420px;
+    box-shadow: var(--shadow-lg);
+  }
+  .toast.ok { background: var(--success); }
+  .toast.err { background: var(--danger); }
+
+  .hint { font-size: 12px; color: var(--muted); margin-top: 4px; line-height: 1.5; }
+  .callout {
+    background: var(--surface-3); border: 1px solid var(--border); border-radius: 9px;
+    padding: 11px 13px; font-size: 12.5px; color: var(--text-secondary); margin-bottom: 14px; line-height: 1.6;
+  }
+  .callout b { color: var(--navy); }
+
+  /* ── Live workflow-run progress (mirrors GitHub's own Actions run view: an overall bar
+     plus a per-step checklist) shown while a signing/payment-check job is running ── */
+  .run-progress-card {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 9px;
+    padding: 13px 15px; margin-bottom: 4px;
+  }
+  .run-progress-title {
+    font-size: 12px; font-weight: 700; color: var(--navy); text-transform: uppercase;
+    letter-spacing: .04em; margin-bottom: 9px; display: flex; align-items: center; gap: 8px;
+  }
+  .run-progress-bar { height: 6px; border-radius: 4px; background: var(--surface-2); overflow: hidden; margin-bottom: 12px; }
+  .run-progress-fill { height: 100%; background: linear-gradient(90deg, var(--teal), #0ea5c4); border-radius: 4px; transition: width .4s ease; }
+  .run-steps { display: flex; flex-direction: column; gap: 7px; }
+  .run-step { display: flex; align-items: center; gap: 9px; font-size: 12.5px; color: var(--text-secondary); }
+  .run-step-icon {
+    width: 16px; height: 16px; border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700;
+  }
+  .run-step.step-ok .run-step-icon { background: var(--success-bg); color: var(--success); }
+  .run-step.step-ok { color: var(--text); }
+  .run-step.step-fail .run-step-icon { background: var(--danger-bg); color: var(--danger); }
+  .run-step.step-fail { color: var(--danger); font-weight: 600; }
+  .run-step.step-skip .run-step-icon { background: var(--surface-2); color: var(--muted-2); }
+  .run-step.step-skip { color: var(--muted-2); }
+  .run-step.step-active .run-step-icon { background: var(--teal-light); color: var(--teal); animation: pulse 1.1s ease-in-out infinite; }
+  .run-step.step-active { color: var(--navy); font-weight: 600; }
+  .run-step.step-pending .run-step-icon { background: var(--surface-2); border: 1.5px solid var(--border-2); }
+  .run-step.step-pending { color: var(--muted-2); }
+  @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .55; transform: scale(.85); } }
+
+  /* ── Summary "profile card" (readonlyBlock / crashReadonlyBlock) — a responsive stat grid,
+     label-over-value per field, replacing the old flat "**Label** value" lines. Built by the
+     statCell() helper in the main script; .full spans the whole card width (long/identifying
+     values — messages, UIDs, exception names), everything else packs into the grid. A thin
+     accent bar on the left, colored via --accent (set per open/closed state alongside the
+     existing state-pill class toggle — see openIssue()/openCrashIssue()), gives the card an
+     at-a-glance status read before anyone reads a word of it. ── */
+  .readonly-block {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 13px 22px;
+    background: var(--surface-3);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent, var(--teal));
+    border-radius: 10px;
+    padding: 16px 18px;
+    margin-bottom: 16px;
+    transition: background-color .35s ease, border-color .35s ease;
+  }
+  .readonly-block .stat { min-width: 0; }
+  .readonly-block .stat.full { grid-column: 1 / -1; }
+  .readonly-block .stat-label {
+    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+    color: var(--muted); margin-bottom: 3px;
+  }
+  .readonly-block .stat-value {
+    font-size: 14px; font-weight: 600; color: var(--text); line-height: 1.4;
+    overflow-wrap: break-word;
+  }
+  .readonly-block .stat-value.mono {
+    font-family: "JetBrains Mono", Consolas, monospace; font-size: 12px; font-weight: 500;
+  }
+
+  /* ── Detail-view section cards — wraps the content under each .section-title so a long
+     detail panel reads as a set of distinct, scannable blocks instead of one flat scroll
+     with only a thin divider line between sections. ── */
+  .detail-card {
+    background: var(--surface-3);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+    transition: background-color .35s ease, border-color .35s ease;
+  }
+  .detail-card:last-child { margin-bottom: 0; }
+  .detail-card > *:first-child { margin-top: 0; }
+  .detail-card > *:last-child { margin-bottom: 0; }
+
+  a.gh-link { color: var(--teal); font-weight: 600; text-decoration: none; }
+  a.gh-link:hover { text-decoration: underline; }
+
+  #tokenWrap { display: flex; justify-content: center; padding: 60px 20px; }
+  #tokenSetup { max-width: 560px; width: 100%; }
+  #tokenSetup input { margin-bottom: 10px; }
+  #tokenSetup ol { font-size: 13px; color: var(--muted); padding-left: 20px; line-height: 1.9; }
+  #tokenSetup ol b { color: var(--navy); }
+  .hidden { display: none !important; }
+
+  /* ── Custom confirm modal (replaces window.confirm) ── */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(6,14,22,.55);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 1000; padding: 20px;
+    animation: fadeIn .12s ease;
+  }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .modal-box {
+    background: var(--panel); border-radius: 14px; max-width: 420px; width: 100%;
+    box-shadow: var(--shadow-lg);
+    animation: popIn .14s cubic-bezier(.2,.8,.3,1.2);
+  }
+  @keyframes popIn { from { transform: scale(.95) translateY(6px); opacity: 0; } to { transform: none; opacity: 1; } }
+  .modal-box .modal-icon {
+    width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-size: 20px; margin: 22px auto 4px;
+  }
+  .modal-box.warn .modal-icon { background: var(--warn-bg); color: var(--warn); }
+  .modal-box.danger .modal-icon { background: var(--danger-bg); color: var(--danger); }
+  .modal-box.info .modal-icon { background: var(--teal-light); color: var(--teal); }
+  .modal-box h3 { text-align: center; font-size: 16px; margin: 6px 20px 6px; color: var(--navy); }
+  .modal-box p { text-align: center; font-size: 13.5px; color: var(--muted); margin: 0 22px 20px; line-height: 1.6; }
+  .modal-actions { display: flex; gap: 10px; padding: 0 22px 22px; }
+  .modal-actions button { flex: 1; justify-content: center; padding: 10px 14px; }
+
+  .section-title {
+    font-size: 12px; font-weight: 700; color: var(--navy);
+    margin: 22px 0 10px; text-transform: uppercase; letter-spacing: .06em;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .section-title::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+
+  .license-box {
+    background: var(--code-bg); color: var(--code-fg);
+    font-family: "JetBrains Mono", Consolas, monospace; font-size: 11.5px;
+    padding: 12px 14px; border-radius: 8px; word-break: break-all;
+    margin-bottom: 10px; max-height: 110px; overflow-y: auto; line-height: 1.5;
+  }
+  .actions-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+
+  .empty-state {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 70px 30px; text-align: center; color: var(--muted);
+  }
+  .empty-state .icon { font-size: 40px; margin-bottom: 12px; opacity: .5; }
+  .empty-state h3 { color: var(--text-strong); font-size: 15px; margin: 0 0 4px; }
+  .empty-state p { font-size: 13px; margin: 0; max-width: 280px; }
+
+  .spinner {
+    width: 22px; height: 22px; border-radius: 50%;
+    border: 3px solid var(--border); border-top-color: var(--teal);
+    animation: spin .7s linear infinite; margin: 30px auto;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .form-title-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .form-title-row h2 { font-size: 17px; margin: 0; color: var(--navy); }
+  .form-title-row .state-pill {
+    font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 20px;
+    text-transform: uppercase; letter-spacing: .04em;
+  }
+  .state-pill.open { background: var(--info-bg); color: var(--info); }
+  .state-pill.closed { background: var(--surface-2); color: var(--muted); }
+
+  /* ── Mobile (kept last in the cascade deliberately — equal-specificity rules above this
+     point, like the base .field-grid 2-column layout, would otherwise win on source order
+     even inside a matching @media block) ── */
+  @media (max-width: 640px) {
+    .topbar { padding: 52px 16px 12px; }
+    .layout { padding: 14px 14px 30px; gap: 14px; }
+    .panel-header { padding: 13px 14px 12px; }
+    .panel-body { padding: 12px 14px 14px; }
+    .field-grid { grid-template-columns: 1fr; gap: 12px; }
+    .actions-row { flex-direction: column; }
+    .actions-row button { width: 100%; justify-content: center; }
+    .readonly-block .rline { flex-wrap: wrap; }
+    .form-title-row h2 { font-size: 15px; }
+    .issue-item .company { font-size: 13.5px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">
+    <img src="../assets/amprologo.png" alt="ambill" class="app-logo">
+    <div class="brand-divider"></div>
+    <div>
+      <h1>License Admin</h1>
+      <div class="tagline">Review, edit, approve &amp; manage license requests <span id="buildTag" style="opacity:.55;"></span></div>
+    </div>
+  </div>
+  <!-- position:absolute (see .topbar's own position:relative), not a flex child of either
+       .brand or #topbarAppActions — theme is a page-level preference, so this needs to stay
+       visible on the token-setup screen too, before #topbarAppActions ever un-hides. Text/icon
+       set by ambillApplyTheme() in the main script; cycles Auto → Light → Dark. -->
+  <button class="btn-ghost-dark" id="themeToggleBtn" title="Toggle theme (Auto / Light / Dark)">🌙 Auto</button>
+  <div class="topbar-actions" id="topbarAppActions" style="display:none;">
+    <div class="tab-strip" id="viewTabs">
+      <button class="btn-ghost-dark tab-btn tab-active" id="tabLicense" data-view="license">📋 License Requests</button>
+      <button class="btn-ghost-dark tab-btn" id="tabCrash" data-view="crash">🐞 Crash Reports</button>
+      <button class="btn-ghost-dark tab-btn" id="tabReleases" data-view="releases">🚀 Releases</button>
+    </div>
+    <button class="btn-ghost-dark" id="refreshBtn">↻ Refresh</button>
+    <button class="btn-ghost-dark" id="changeTokenBtn">Change token</button>
+    <!-- Links straight to GitHub's own native workflow-dispatch form (version box, Mandatory
+         checkbox, release-notes box) rather than embedding a trigger here — that would need
+         this page's admin token to also reach into ampro-apps (the private source repo), a
+         real widening of what a leaked/overbroad token could do, for a form GitHub already
+         renders for free. See publish-release.yml's own header comment. Also shown inside the
+         Releases tab itself now, next to what's actually published — this topbar copy stays too
+         since it's reachable from every tab. -->
+    <a class="btn-link" href="https://github.com/ampro-repos/ampro-apps/actions/workflows/publish-release.yml" target="_blank">🚀 Publish Update →</a>
+    <a class="btn-link" href="https://github.com/ampro-repos/ambill-releases/actions" target="_blank">Actions tab →</a>
+    <a class="btn-link" href="https://github.com/ampro-repos/ambill-releases/issues" target="_blank">Issues tab →</a>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<div id="tokenWrap" class="hidden">
+  <div id="tokenSetup" class="panel">
+    <div class="panel-header"><div class="panel-title" style="margin:0;">Connect your GitHub account</div></div>
+    <div class="panel-body">
+      <label>Your GitHub Personal Access Token</label>
+      <input type="password" id="tokenInput" placeholder="github_pat_...">
+      <button class="btn-primary" id="saveTokenBtn">Save Token</button>
+      <div class="hint" style="margin-top:10px;">
+        Stored only in this browser (localStorage) — never sent anywhere except api.github.com.
+      </div>
+      <ol>
+        <li>GitHub → your profile photo → <b>Settings</b> → <b>Developer settings</b> → <b>Personal access tokens</b> → <b>Fine-grained tokens</b> → <b>Generate new token</b></li>
+        <li>Resource owner: <b>ampro-repos</b>. Repository access: <b>Only select repositories</b> → <b>ambill-releases</b> AND <b>ambill-error-reports</b> (select both — the same token now drives both the License Requests and Crash Reports tabs on this page)</li>
+        <li>Permissions → Repository permissions:
+          <b>Issues</b> → Read and write ·
+          <b>Actions</b> → Read and write ·
+          <b>Deployments</b> → Read and write ·
+          <b>Contents</b> → Read and write
+          <br>(on <b>ambill-error-reports</b> only <b>Issues</b> → Read and write is actually needed)
+        </li>
+        <li>"Deployments" is a separate permission from "Actions" — per GitHub's own docs, it's specifically what "Approve &amp; Sign Now" needs to review a pending deployment. Easy to miss; without it you'll get a 403.</li>
+        <li>Approving also requires the token's own account to actually be the required reviewer on the <b>license-signing</b> environment (currently <b>mcankalx</b>) — a token from any other account will still 403 even with every permission above granted.</li>
+        <li>Generate, copy the token, paste it above.</li>
+      </ol>
+    </div>
+  </div>
+</div>
+
+<div id="app" class="hidden">
+  <div class="layout" id="layoutRoot">
+
+    <div class="panel" id="listCard">
+      <div class="panel-header">
+        <div class="panel-title">License Requests</div>
+        <div class="filter-bar">
+          <select id="fltState">
+            <option value="all">All statuses</option>
+            <option value="open">Open only</option>
+            <option value="closed">Closed only</option>
+          </select>
+          <select id="fltProduct">
+            <option value="all">All products</option>
+            <option value="ambill">ambill</option>
+            <option value="amfreezer">amfreezer</option>
+          </select>
+          <input type="text" id="fltSearch" placeholder="Search company / contact / phone / UID...">
+        </div>
+      </div>
+      <div class="panel-body">
+        <div id="listLoading" class="spinner"></div>
+        <ul id="issueList" class="issue-list"></ul>
+        <div id="listEmpty" class="empty-state hidden">
+          <div class="icon">🔍</div>
+          <h3>No matching requests</h3>
+          <p>Try a different filter or search term.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" id="detailPanel">
+      <div id="emptyDetail" class="empty-state">
+        <div class="icon">📋</div>
+        <h3>Select a request</h3>
+        <p>Pick a license request from the list to view details, edit its terms, and take action.</p>
+      </div>
+
+      <div id="formCard" class="hidden">
+        <div class="panel-header">
+          <div class="form-title-row">
+            <h2 id="formTitle">Request #</h2>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span id="formStatePill" class="state-pill open">open</span>
+              <button id="detailRefreshBtn" class="icon-btn" title="Refresh this request">↻</button>
+            </div>
+          </div>
+        </div>
+        <div class="panel-body">
+
+          <div id="readonlyBlock" class="readonly-block"></div>
+
+          <div class="detail-card">
+            <div class="section-title">Crash Reports (this machine)</div>
+            <div id="licenseCrashList" style="margin-bottom: 0;"><div class="hint">Loading…</div></div>
+          </div>
+
+          <div id="licenseBox" class="hidden detail-card">
+            <div class="hint" style="margin-bottom:6px;">Signed license</div>
+            <div id="licenseText" class="license-box"></div>
+          </div>
+
+          <div id="paymentProofBox" class="hidden detail-card">
+            <div class="hint" style="margin-bottom:6px;">Customer's payment submission</div>
+            <div id="paymentProofContent" style="border:1px solid var(--border); border-radius:9px; padding:12px; background:var(--surface-4);"></div>
+          </div>
+
+          <div class="detail-card">
+            <div class="section-title">📜 History</div>
+            <div id="historyList" style="margin-bottom: 0;"></div>
+          </div>
+
+          <div class="detail-card">
+            <div class="section-title">Request Details</div>
+            <div class="field-grid">
+              <div>
+                <label>Request Type</label>
+                <select id="fRequestType">
+                  <option>New Activation</option>
+                  <option>Renewal</option>
+                  <option>Switched Computer</option>
+                </select>
+              </div>
+              <div style="position:relative;">
+                <label>Previous Machine ID (only if switching)</label>
+                <div class="dropdown-input">
+                  <input type="text" id="fPreviousUid" placeholder="Search company or paste UID..." autocomplete="off">
+                  <svg class="dropdown-chevron" width="11" height="7" viewBox="0 0 11 7" fill="none"><path d="M1 1l4.5 4.5L10 1" stroke="#94a3b8" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </div>
+                <div id="prevUidSuggestions" class="autocomplete-list hidden"></div>
+                <div id="prevUidFromHint" class="hint hidden"></div>
+              </div>
+
+              <div>
+                <label>Product</label>
+                <select id="fProduct">
+                  <option value="ambill">ambill</option>
+                  <option value="amfreezer">amfreezer</option>
+                </select>
+              </div>
+              <div>
+                <label>License Type</label>
+                <select id="fLicenseType">
+                  <option>Paid</option>
+                  <option>Trial</option>
+                </select>
+              </div>
+
+              <div>
+                <label>Expiry Date</label>
+                <input type="date" id="fExpiryDate">
+                <div id="fExpiryDaysLabel" class="hint"></div>
+              </div>
+              <div>
+                <label>Payment Required</label>
+                <select id="fPaymentRequired">
+                  <option>No</option>
+                  <option>Yes</option>
+                </select>
+              </div>
+
+              <div id="paymentFields" class="full field-grid hidden" style="grid-template-columns: 1fr 1fr;">
+                <div>
+                  <label>Payment Amount (INR)</label>
+                  <input type="number" id="fPaymentAmount" min="1" placeholder="5000">
+                </div>
+                <div>
+                  <label>Payment Provider</label>
+                  <select id="fPaymentProvider">
+                    <option value="UPI QR">UPI QR</option>
+                    <option value="Razorpay">Razorpay</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div class="actions-row" style="margin-top: 18px;">
+              <button class="btn-primary" id="saveBtn">💾 Save Changes</button>
+              <span id="saveHint" class="hint" style="align-self:center;"></span>
+            </div>
+          </div>
+
+          <div class="detail-card">
+            <div class="section-title">Actions</div>
+            <div id="approvalHint" class="callout hidden"></div>
+            <div id="runProgressBox" class="hidden" style="margin-bottom:14px;"></div>
+            <div class="actions-row">
+              <button id="markPaidBtn" class="btn-primary hidden">✓ Mark Payment Received &amp; Release License</button>
+              <button id="approveBtn" class="btn-teal">✓ Approve &amp; Sign Now</button>
+              <button id="extendBtn" class="btn-secondary hidden">🔄 Extend License</button>
+              <button id="runPaymentCheckBtn" class="btn-secondary">↻ Run Payment Check Now</button>
+              <button id="closeBtn" class="btn-secondary">✕ Close / Reject</button>
+              <button id="reopenBtn" class="btn-secondary hidden">↺ Reopen Request</button>
+              <button id="revokeBtn" class="btn-danger">⛔ Revoke This Machine</button>
+            </div>
+          </div>
+
+          <div class="detail-card">
+            <div class="section-title">Comment</div>
+            <textarea id="commentText" rows="3" placeholder="Note for the record, or a message the customer will see..."></textarea>
+            <div class="actions-row" style="margin-top: 10px;">
+              <button id="commentBtn" class="btn-secondary">💬 Post Comment</button>
+            </div>
+          </div>
+
+          <div class="actions-row">
+            <button id="backBtn" class="btn-secondary">← Back to list</button>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="layout hidden" id="crashLayoutRoot">
+
+    <div class="panel" id="crashListCard">
+      <div class="panel-header">
+        <div class="panel-title">Crash Reports</div>
+        <div class="filter-bar">
+          <select id="crashFltState">
+            <option value="open">Open only</option>
+            <option value="all">All statuses</option>
+            <option value="closed">Closed only</option>
+          </select>
+          <select id="crashFltSeverity">
+            <option value="all">All severities</option>
+            <option value="Fatal">Fatal</option>
+            <option value="Recoverable">Recoverable</option>
+            <option value="Unobserved">Unobserved</option>
+          </select>
+          <div style="display:flex; gap:8px;">
+            <input type="date" id="crashFltFromDate" title="From date" style="flex:1;">
+            <input type="date" id="crashFltToDate" title="To date" style="flex:1;">
+          </div>
+          <label style="display:flex; align-items:center; gap:6px; font-weight:500; margin-top:2px; cursor:pointer;">
+            <input type="checkbox" id="crashShowIgnored" style="width:auto;"> Show ignored
+          </label>
+          <input type="text" id="crashFltSearch" placeholder="Search exception type / message...">
+        </div>
+      </div>
+      <div class="panel-body">
+        <div id="crashListLoading" class="spinner"></div>
+        <ul id="crashIssueList" class="issue-list"></ul>
+        <div id="crashListEmpty" class="empty-state hidden">
+          <div class="icon">🐞</div>
+          <h3>No matching crash reports</h3>
+          <p>Try a different filter — or nothing has been reported yet.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" id="crashDetailPanel">
+      <div id="crashEmptyDetail" class="empty-state">
+        <div class="icon">📋</div>
+        <h3>Select a crash report</h3>
+        <p>Pick one from the list to see the full stack trace and recurrence history.</p>
+      </div>
+
+      <div id="crashFormCard" class="hidden">
+        <div class="panel-header">
+          <div class="form-title-row">
+            <h2 id="crashFormTitle">Report #</h2>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span id="crashFormStatePill" class="state-pill open">open</span>
+              <button id="crashDetailRefreshBtn" class="icon-btn" title="Refresh this report">↻</button>
+            </div>
+          </div>
+        </div>
+        <div class="panel-body">
+
+          <div id="crashReadonlyBlock" class="readonly-block"></div>
+
+          <div class="detail-card">
+            <div class="section-title">Stack Trace</div>
+            <div id="crashStackTrace" class="license-box" style="max-height: 260px;"></div>
+          </div>
+
+          <div class="detail-card">
+            <div class="section-title">Recurrence History</div>
+            <div id="crashHistoryList"></div>
+          </div>
+
+          <div class="detail-card">
+            <div class="section-title">Actions</div>
+            <div class="actions-row">
+              <button id="crashIgnoreBtn" class="btn-secondary">🙈 Ignore</button>
+              <button id="crashCloseBtn" class="btn-secondary">✕ Close (fixed)</button>
+              <button id="crashReopenBtn" class="btn-secondary hidden">↺ Reopen</button>
+              <a class="btn-link" id="crashGhLink" href="#" target="_blank" style="align-self:center;">View on GitHub →</a>
+            </div>
+          </div>
+
+          <div class="actions-row">
+            <button id="crashBackBtn" class="btn-secondary">← Back to list</button>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="layout hidden" id="releasesLayoutRoot">
+  <div class="panel" id="releasesListCard" style="grid-column: 1 / -1;">
+    <div class="panel-header">
+      <div class="panel-title">Published Releases</div>
+      <div class="hint" style="margin-top:-2px;">
+        What the auto-updater on every install actually sees — reads GitHub Releases on
+        ambill-releases directly, same token as the other tabs.
+        <a class="btn-link" href="https://github.com/ampro-repos/ampro-apps/actions/workflows/publish-release.yml" target="_blank" style="padding:0; margin-left:4px;">🚀 Publish new update →</a>
+      </div>
+    </div>
+    <div class="panel-body">
+      <div id="releasesLoading" class="spinner"></div>
+      <div id="releasesList"></div>
+      <div id="releasesEmpty" class="empty-state hidden">
+        <div class="icon">📦</div>
+        <h3>No releases published yet</h3>
+        <p>Use "Publish new update" above to build and ship the first one — installs won't see any auto-update until then.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="modalOverlay" class="modal-overlay hidden">
+  <div id="modalBox" class="modal-box warn">
+    <div id="modalIcon" class="modal-icon">?</div>
+    <h3 id="modalTitle">Are you sure?</h3>
+    <p id="modalMessage"></p>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="modalCancelBtn">Cancel</button>
+      <button class="btn-primary" id="modalConfirmBtn">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Theme: light/dark, auto-switches by local time of day (6am–6pm = light, otherwise
+// dark), with a manual override cycled via the topbar button. "auto" (the default, no
+// localStorage entry) is re-evaluated every 5 minutes so a tab left open actually flips at
+// the day/night boundary — not just once at page load. The pre-paint script in <head> sets
+// the initial data-theme attribute synchronously (avoids a flash of the wrong theme); this
+// just keeps it in sync afterward and wires the toggle button. Purely additive — doesn't
+// touch any existing function, element id, or business logic anywhere else on the page. ──
+const AMBILL_THEME_KEY = "ambill-admin-theme";
+function ambillComputeAutoTheme() {
+  const hour = new Date().getHours();
+  return (hour >= 6 && hour < 18) ? "light" : "dark";
+}
+function ambillGetThemePref() {
+  try { return localStorage.getItem(AMBILL_THEME_KEY) || "auto"; }
+  catch (e) { return "auto"; }
+}
+function ambillApplyTheme() {
+  const pref = ambillGetThemePref();
+  const effective = pref === "auto" ? ambillComputeAutoTheme() : pref;
+  document.documentElement.setAttribute("data-theme", effective);
+  const btn = document.getElementById("themeToggleBtn");
+  if (!btn) return;
+  const icon = effective === "dark" ? "🌙" : "☀️";
+  const label = pref === "auto" ? ("Auto · " + (effective === "dark" ? "Night" : "Day")) : (effective === "dark" ? "Dark" : "Light");
+  btn.textContent = icon + " " + label;
+  btn.title = "Theme: " + label + " — click to change (Auto → Light → Dark → Auto)";
+}
+function ambillCycleTheme() {
+  const order = ["auto", "light", "dark"];
+  const next = order[(order.indexOf(ambillGetThemePref()) + 1) % order.length];
+  try {
+    if (next === "auto") localStorage.removeItem(AMBILL_THEME_KEY);
+    else localStorage.setItem(AMBILL_THEME_KEY, next);
+  } catch (e) { /* private-mode/storage-disabled — theme just won't persist across reloads */ }
+  ambillApplyTheme();
+}
+ambillApplyTheme();
+setInterval(() => { if (ambillGetThemePref() === "auto") ambillApplyTheme(); }, 5 * 60 * 1000);
+document.getElementById("themeToggleBtn").onclick = ambillCycleTheme;
+
+const OWNER = "ampro-repos";
+const REPO = "ambill-releases";
+const API = `https://api.github.com/repos/${OWNER}/${REPO}`;
+// Crash reports live in their own dedicated repo — kept separate from
+// ambill-releases so crash volume doesn't clutter license-request issues or
+// release assets, and so the WinForms client's crash-reporting PAT (see
+// ErrorReportingService.cs) is scoped narrowly to just this one small repo.
+const CRASH_REPO = "ambill-error-reports";
+const CRASH_API = `https://api.github.com/repos/${OWNER}/${CRASH_REPO}`;
+const TOKEN_KEY = "ambill_admin_pat";
+// GitHub Pages caches this document for up to 10 minutes (Cache-Control: max-age=600) — a
+// "this fix isn't working" report is, more often than not, someone looking at a cached copy
+// from before the fix shipped. Bumped on every deploy so that can be confirmed at a glance
+// (and told apart from a real bug) instead of re-diagnosed from scratch each time.
+const BUILD_TAG = "build 2026-09-17 12:01 UTC";
+document.getElementById("buildTag").textContent = "· " + BUILD_TAG;
+
+function escapeRegex(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+// NOTE: [ \t]* (not \s*) before each newline — \s* also matches newlines, so on a field
+// with an empty value followed by extra blank lines (which the parse job's field-appender
+// could produce), a greedy \s* swallows straight past the blank line and captures the START
+// OF THE NEXT "### Label" section as this field's value. Confirmed live: an empty
+// "Previous Machine ID" followed by 3 blank lines before "### Product" was rendering
+// "### Product" as the field's value. [ \t]* only eats trailing spaces/tabs on the same
+// line, so exactly one blank line is required and nothing more.
+function getField(body, label) {
+  const re = new RegExp("### " + escapeRegex(label) + "[ \\t]*\\r?\\n[ \\t]*\\r?\\n([^\\r\\n]*)");
+  const m = body.match(re);
+  return m ? m[1].trim() : "";
+}
+function setField(body, label, value) {
+  const re = new RegExp("(### " + escapeRegex(label) + "[ \\t]*\\r?\\n[ \\t]*\\r?\\n)([^\\r\\n]*)");
+  if (re.test(body)) return body.replace(re, (_, prefix) => prefix + value);
+  return body.replace(/\s*$/, "") + "\n\n### " + label + "\n\n" + value + "\n";
+}
+function extractLicenseFromComments(comments) {
+  // Last match, not first — an extended license posts a second fenced comment on the same
+  // issue, and the most recently issued one is always the one actually valid on the machine.
+  let found = null;
+  for (const c of comments) {
+    const m = (c.body || "").match(/```\s*\n([\s\S]*?)\n```/);
+    if (m) found = m[1].trim();
+  }
+  return found;
+}
+function renderPaymentProof(comments) {
+  const box = document.getElementById("paymentProofBox");
+  const content = document.getElementById("paymentProofContent");
+  // Markers baked into ActivateLicense.cs's PostCommentAsync callers (UploadPaymentProofAsync /
+  // PostPaymentClaimCommentAsync) — whichever the customer's "I've Paid" click posted.
+  const proofComment = [...comments].reverse().find(c =>
+    (c.body || "").includes("Customer submitted payment confirmation") ||
+    (c.body || "").includes("Customer indicates payment was made"));
+
+  if (!proofComment) {
+    box.classList.add("hidden");
+    content.innerHTML = "";
+    return;
+  }
+
+  const body = proofComment.body || "";
+  const imgMatch = body.match(/!\[[^\]]*\]\(([^)]+)\)/);
+  const when = proofComment.created_at ? new Date(proofComment.created_at).toLocaleString() : "";
+  let html = "";
+  if (imgMatch) {
+    html += `<a href="${escapeHtml(imgMatch[1])}" target="_blank" rel="noopener">
+      <img src="${escapeHtml(imgMatch[1])}" alt="Payment proof" style="max-width:100%; max-height:360px; border-radius:6px; border:1px solid var(--border); display:block; margin-bottom:8px;">
+    </a>`;
+  }
+  const textOnly = body.replace(/!\[[^\]]*\]\([^)]+\)/g, "").trim();
+  if (textOnly) {
+    html += `<div style="white-space:pre-wrap; font-size:13px; color:var(--text);">${escapeHtml(textOnly)}</div>`;
+  }
+  if (when) {
+    html += `<div class="hint" style="margin-top:6px;">Submitted ${escapeHtml(when)}</div>`;
+  }
+  content.innerHTML = html;
+  box.classList.remove("hidden");
+}
+// Every comment on the issue, oldest first, lightly classified by matching against the fixed
+// prefixes the workflows/client themselves post (see license-signing.yml, payment-verification.yml,
+// license-extend.yml, ActivateLicense.cs) — reuses the same .history-item card already built for
+// crash-report recurrences. Anything that doesn't match (a manual admin note) still renders, just
+// with a generic icon, so nothing from the raw comments API is ever silently dropped.
+function classifyHistoryComment(body) {
+  if (/^🔄 \*\*License extended/.test(body)) return { icon: "🔄", label: "License extended" };
+  if (/license has been approved|```/.test(body) && /BEGIN|-----|[A-Za-z0-9+/]{40,}/.test(body)) return { icon: "🔑", label: "License issued" };
+  // Anchored to the start — the initial auto-comment's own instructional text can otherwise
+  // false-match the "payment required" check below (it mentions "Payment Required/Amount" as
+  // one of the editable fields), so this must be checked before that one, not after.
+  if (/^request received\b/i.test(body)) return { icon: "📩", label: "Request received" };
+  if (/Customer submitted payment confirmation|Customer indicates payment was made/.test(body)) return { icon: "💳", label: "Payment submitted" };
+  if (/payment.*(required|link|pending)/i.test(body)) return { icon: "💰", label: "Payment required" };
+  if (/revoked/i.test(body)) return { icon: "⛔", label: "Revoked" };
+  return { icon: "💬", label: "Comment" };
+}
+function renderHistory(comments) {
+  const box = document.getElementById("historyList");
+  if (!comments.length) {
+    box.innerHTML = `<div class="hint">No activity yet.</div>`;
+    return;
+  }
+  const sorted = [...comments].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+  box.innerHTML = sorted.map(c => {
+    const body = c.body || "";
+    const { icon, label } = classifyHistoryComment(body);
+    const when = c.created_at ? new Date(c.created_at).toLocaleString() : "";
+    // Fenced license blobs are already shown in full in the License box above — collapse them
+    // here to keep the timeline scannable instead of repeating a long opaque string per entry.
+    const preview = body.replace(/```[\s\S]*?```/g, "[license omitted — see above]").trim();
+    return `<div class="history-item">
+      <div class="row-between">
+        <div><b>${icon} ${escapeHtml(label)}</b></div>
+        <span class="hwhen">${escapeHtml(when)}</span>
+      </div>
+      <div style="white-space:pre-wrap; margin-top:4px;">${escapeHtml(preview)}</div>
+    </div>`;
+  }).join("");
+}
+function escapeHtml(s) {
+  return (s || "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+// One cell in the readonlyBlock/crashReadonlyBlock "profile card" stat grid — label above,
+// value below. valueHtml is already-escaped/pre-built markup (a plain value, or a small
+// <span class="badge">). full spans the whole card width, for long/identifying values
+// (messages, UIDs, exception names) that would look cramped in a compact grid cell.
+// keepEmpty:true always renders the cell (used for fields the code has already decided to
+// show unconditionally); otherwise an empty value renders nothing, matching the same
+// conditional-display behavior the old inline ${cond ? ... : ""} lines had.
+function statCell(label, valueHtml, opts) {
+  opts = opts || {};
+  if (!opts.keepEmpty && !valueHtml) return "";
+  const fullCls = opts.full ? " full" : "";
+  const monoCls = opts.mono ? " mono" : "";
+  return `<div class="stat${fullCls}"><div class="stat-label">${escapeHtml(label)}</div><div class="stat-value${monoCls}">${valueHtml}</div></div>`;
+}
+
+// The readonlyBlock/crashReadonlyBlock left accent bar — same color as the entry's own status
+// badge (see computeStatus/computeCrashStatus's .cls), so the card reads its state at a
+// glance. References another CSS var (not a literal color) so it stays theme-reactive.
+function accentColorVar(badgeCls) {
+  const map = {
+    "badge-new": "--info", "badge-payment": "--warn", "badge-signed": "--success",
+    "badge-closed": "--danger", "badge-approval": "--purple",
+    "badge-fatal": "--danger", "badge-recoverable": "--warn", "badge-unobserved": "--purple",
+    "badge-caught": "--teal", "badge-ignored": "--muted-2"
+  };
+  return "var(" + (map[badgeCls] || "--teal") + ")";
+}
+
+// ── Expiry: stored/signed as a day-count ("Requested Expiry (days from
+// approval)" — the CLI computes today+days at SIGN time, not edit time), but
+// shown/edited as a calendar date for a nicer UI. Converts both ways off
+// "today" at midnight, since that's the best available proxy for "the day
+// this gets approved" while editing. ──────────────────────────────────────
+function daysBetweenTodayAnd(dateStr) {
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const target = new Date(dateStr + "T00:00:00");
+  return Math.round((target - today) / 86400000);
+}
+function dateFromTodayPlusDays(days) {
+  const d = new Date(); d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() + (parseInt(days, 10) || 365));
+  return d.toISOString().slice(0, 10);
+}
+function updateExpiryDaysLabel() {
+  const dateStr = document.getElementById("fExpiryDate").value;
+  const lbl = document.getElementById("fExpiryDaysLabel");
+  if (!dateStr) { lbl.textContent = ""; return; }
+  const days = daysBetweenTodayAnd(dateStr);
+  lbl.textContent = days >= 0 ? `≈ ${days} day${days === 1 ? "" : "s"} from today` : "⚠ this date is in the past";
+}
+document.getElementById("fExpiryDate").onchange = updateExpiryDaysLabel;
+
+// ── Previous Machine ID: searchable dropdown over every other request's
+// Company Name, auto-filling the actual Machine ID on selection instead of
+// requiring the admin to go find and copy-paste it by hand. Still a free-text
+// input underneath — older/off-system UIDs can still be typed directly. ──
+function getAutocompleteSource() {
+  const excludeNumber = currentEntry ? currentEntry.issue.number : null;
+  return allIssues
+    .filter(e => e.issue.number !== excludeNumber)
+    .map(e => ({
+      company: getField(e.issue.body || "", "Company Name") || "(no company name)",
+      uid: getField(e.issue.body || "", "Machine ID") || "",
+      number: e.issue.number
+    }))
+    .filter(x => x.uid);
+}
+function renderPrevUidSuggestions(filterText) {
+  const list = document.getElementById("prevUidSuggestions");
+  const q = (filterText || "").toLowerCase().trim();
+  const matches = getAutocompleteSource()
+    .filter(x => !q || x.company.toLowerCase().includes(q) || x.uid.toLowerCase().includes(q))
+    .slice(0, 8);
+  list.innerHTML = matches.length
+    ? matches.map(x => `
+        <div class="ac-item" data-uid="${escapeHtml(x.uid)}" data-company="${escapeHtml(x.company)}">
+          <div class="ac-company">${escapeHtml(x.company)}</div>
+          <div class="ac-uid">${escapeHtml(x.uid)} · #${x.number}</div>
+        </div>`).join("")
+    : `<div class="ac-empty">No matching requests — you can still paste a UID directly.</div>`;
+  list.querySelectorAll(".ac-item").forEach(el => {
+    el.onmousedown = (e) => {
+      e.preventDefault();   // beat the input's blur handler
+      document.getElementById("fPreviousUid").value = el.dataset.uid;
+      showPrevUidFromHint(el.dataset.company);
+      list.classList.add("hidden");
+    };
+  });
+  list.classList.remove("hidden");
+}
+function showPrevUidFromHint(company) {
+  const hint = document.getElementById("prevUidFromHint");
+  if (company) { hint.textContent = `↳ from: ${company}`; hint.classList.remove("hidden"); }
+  else hint.classList.add("hidden");
+}
+document.getElementById("fPreviousUid").addEventListener("input", (e) => {
+  showPrevUidFromHint(null);
+  renderPrevUidSuggestions(e.target.value);
+});
+document.getElementById("fPreviousUid").addEventListener("focus", (e) => renderPrevUidSuggestions(e.target.value));
+document.getElementById("fPreviousUid").addEventListener("blur", () => {
+  setTimeout(() => document.getElementById("prevUidSuggestions").classList.add("hidden"), 120);
+});
+document.getElementById("fPreviousUid").addEventListener("keydown", (e) => {
+  if (e.key === "Escape") document.getElementById("prevUidSuggestions").classList.add("hidden");
+});
+
+function toast(msg, ok) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.className = "toast " + (ok ? "ok" : "err");
+  t.style.display = "block";
+  setTimeout(() => { t.style.display = "none"; }, 4500);
+}
+function getToken() { return localStorage.getItem(TOKEN_KEY) || ""; }
+
+// ── Custom confirm modal (replaces window.confirm, which can't be styled
+// and looks jarring next to the rest of the page). Returns a Promise<bool>. ──
+function customConfirm(message, opts) {
+  opts = opts || {};
+  const overlay = document.getElementById("modalOverlay");
+  const box = document.getElementById("modalBox");
+  const icon = document.getElementById("modalIcon");
+  const kind = opts.kind || "warn";   // warn | danger | info
+  box.className = "modal-box " + kind;
+  icon.textContent = kind === "danger" ? "⛔" : kind === "info" ? "ℹ" : "⚠";
+  document.getElementById("modalTitle").textContent = opts.title || "Are you sure?";
+  document.getElementById("modalMessage").textContent = message;
+  const confirmBtn = document.getElementById("modalConfirmBtn");
+  confirmBtn.textContent = opts.confirmText || "Confirm";
+  confirmBtn.className = kind === "danger" ? "btn-danger" : "btn-primary";
+  overlay.classList.remove("hidden");
+
+  return new Promise(resolve => {
+    function cleanup(result) {
+      overlay.classList.add("hidden");
+      confirmBtn.onclick = null;
+      cancelBtn.onclick = null;
+      overlay.onclick = null;
+      document.removeEventListener("keydown", onKey);
+      resolve(result);
+    }
+    function onKey(e) {
+      if (e.key === "Escape") cleanup(false);
+      if (e.key === "Enter") cleanup(true);
+    }
+    const cancelBtn = document.getElementById("modalCancelBtn");
+    confirmBtn.onclick = () => cleanup(true);
+    cancelBtn.onclick = () => cleanup(false);
+    overlay.onclick = (e) => { if (e.target === overlay) cleanup(false); };
+    document.addEventListener("keydown", onKey);
+  });
+}
+
+async function ghApi(base, path, opts) {
+  const res = await fetch(base + path, {
+    ...opts,
+    headers: {
+      "Authorization": "token " + getToken(),
+      "Accept": "application/vnd.github+json",
+      "Content-Type": "application/json",
+      ...(opts && opts.headers)
+    }
+  });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`GitHub API ${res.status}: ${body}`);
+  }
+  return res.status === 204 ? null : res.json();
+}
+function gh(path, opts) { return ghApi(API, path, opts); }
+function ghCrash(path, opts) { return ghApi(CRASH_API, path, opts); }
+
+// ── Token setup ──────────────────────────────────────────────────────────
+function showApp() {
+  document.getElementById("tokenWrap").classList.add("hidden");
+  document.getElementById("app").classList.remove("hidden");
+  document.getElementById("topbarAppActions").style.display = "flex";
+  loadIssueList();
+}
+
+// ── View switching (License Requests vs Crash Reports) ─────────────────────
+// One token drives both tabs (see the updated token-setup instructions above);
+// switching tabs never re-prompts for auth, it just swaps which panel/dataset
+// is visible and lazy-loads the crash list the first time it's opened.
+let currentView = "license";
+let crashListLoadedOnce = false;
+let releasesListLoadedOnce = false;
+function switchView(view) {
+  currentView = view;
+  document.getElementById("layoutRoot").classList.toggle("hidden", view !== "license");
+  document.getElementById("crashLayoutRoot").classList.toggle("hidden", view !== "crash");
+  document.getElementById("releasesLayoutRoot").classList.toggle("hidden", view !== "releases");
+  document.getElementById("tabLicense").classList.toggle("tab-active", view === "license");
+  document.getElementById("tabCrash").classList.toggle("tab-active", view === "crash");
+  document.getElementById("tabReleases").classList.toggle("tab-active", view === "releases");
+  if (view === "crash" && !crashListLoadedOnce) {
+    crashListLoadedOnce = true;
+    initCrashDateFilterDefaults();
+    loadCrashList();
+  }
+  if (view === "releases" && !releasesListLoadedOnce) {
+    releasesListLoadedOnce = true;
+    loadReleasesList();
+  }
+}
+document.getElementById("tabLicense").onclick = () => switchView("license");
+document.getElementById("tabCrash").onclick = () => switchView("crash");
+document.getElementById("tabReleases").onclick = () => switchView("releases");
+function showTokenSetup() {
+  document.getElementById("tokenWrap").classList.remove("hidden");
+  document.getElementById("app").classList.add("hidden");
+  document.getElementById("topbarAppActions").style.display = "none";
+}
+document.getElementById("saveTokenBtn").onclick = () => {
+  const v = document.getElementById("tokenInput").value.trim();
+  if (!v) return;
+  localStorage.setItem(TOKEN_KEY, v);
+  showApp();
+};
+document.getElementById("changeTokenBtn").onclick = () => {
+  localStorage.removeItem(TOKEN_KEY);
+  document.getElementById("tokenInput").value = "";
+  showTokenSetup();
+};
+
+// ── Waiting-for-approval workflow runs (fetched once per list load, matched
+// to an issue by nearest run created at/after that issue's creation time —
+// there's no first-class "which issue triggered this run" field on a run
+// object for issues-triggered workflows, so this proximity heuristic is what
+// approve-from-here relies on. Always double-check the Actions tab link
+// shown alongside it before trusting an approval blindly). ──────────────────
+let waitingRuns = [];
+async function loadWaitingRuns() {
+  try {
+    const data = await gh(`/actions/workflows/license-signing.yml/runs?status=waiting&per_page=50`);
+    waitingRuns = data.workflow_runs || [];
+  } catch (e) {
+    waitingRuns = [];
+  }
+}
+function findRunForIssue(issueCreatedAt) {
+  const created = new Date(issueCreatedAt).getTime();
+  const candidates = waitingRuns
+    .filter(r => new Date(r.created_at).getTime() >= created - 10000)
+    .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+  return candidates[0] || null;
+}
+
+// ── Issue list ───────────────────────────────────────────────────────────
+let allIssues = [];
+let selectedIssueNumber = null;
+// Bumped by every operation that's about to overwrite allIssues/currentEntry and re-render
+// (loadIssueList, pollForApprovalResult). Each such operation captures its own ticket and
+// checks it's still current before applying results — without this, a slow-to-resolve Refresh
+// click racing against an in-flight poll (e.g. the admin clicking Refresh while "Mark Payment
+// Received" is still waiting on the signing job) could resolve AFTER the poll's own final
+// render and silently overwrite the list with the stale pre-signing snapshot it started with,
+// while the detail panel (only touched by whichever call runs openIssue last) stayed on the
+// poll's newer, correct state — the list and detail panel visibly disagreeing about the same
+// request's status.
+let renderGeneration = 0;
+
+// Both Refresh buttons (topbar + in-panel) drive this — a visible busy/disabled state and a
+// completion toast so a refresh is provably working even when the admin can't see the list's
+// own spinner (e.g. on a phone, scrolled down into the detail panel, list hidden entirely).
+function setRefreshBusy(busy) {
+  const topBtn = document.getElementById("refreshBtn");
+  const detailBtn = document.getElementById("detailRefreshBtn");
+  if (topBtn) { topBtn.disabled = busy; topBtn.textContent = busy ? "↻ Refreshing..." : "↻ Refresh"; }
+  if (detailBtn) { detailBtn.disabled = busy; detailBtn.classList.toggle("spinning", busy); }
+}
+
+// announceSuccess: only the explicit Refresh buttons pass true. Internal call sites (initial
+// boot, and post-action reloads after Approve/Close/Reopen/etc.) already show their own
+// specific toast ("Request closed.", ...) — a generic "Updated" toast here would immediately
+// overwrite and hide that more useful message, since both share the single #toast element.
+async function loadIssueList(announceSuccess) {
+  const listEl = document.getElementById("issueList");
+  const empty = document.getElementById("listEmpty");
+  const loading = document.getElementById("listLoading");
+  const myGen = ++renderGeneration;
+  setRefreshBusy(true);
+  listEl.innerHTML = "";
+  empty.classList.add("hidden");
+  loading.classList.remove("hidden");
+  try {
+    const [issues] = await Promise.all([
+      gh(`/issues?labels=license-request&state=all&per_page=100`),
+      loadWaitingRuns()
+    ]);
+    // Fetch comments for every issue so status badges (Signed vs Closed) and
+    // the license box are accurate — fine at this scale (a handful of
+    // requests at a time), well within the 5000/hr authenticated API limit.
+    const fetched = await Promise.all(issues.map(async issue => {
+      let comments = [];
+      try { comments = await gh(`/issues/${issue.number}/comments?per_page=30`); } catch (e) {}
+      return { issue, comments, license: extractLicenseFromComments(comments) };
+    }));
+    // A newer refresh (another click, or a poll that has since found a real change) started
+    // and possibly already finished while this fetch was in flight — its result is more
+    // current than this one, so drop this one on the floor instead of clobbering it.
+    if (myGen !== renderGeneration) return;
+    allIssues = fetched;
+    renderIssueList();
+    // Refresh doesn't just repopulate the list — if a request's detail panel is open, it was
+    // holding a stale `currentEntry` (old comments, old license/payment-proof state) that this
+    // reload just made outdated. Re-open it from the freshly fetched allIssues so the panel
+    // reflects reality without the admin having to click the row again.
+    if (selectedIssueNumber != null) {
+      const fresh = allIssues.find(e => e.issue.number === selectedIssueNumber);
+      if (fresh) openIssue(fresh);
+    }
+    if (announceSuccess) {
+      toast(`Updated — ${allIssues.length} request${allIssues.length === 1 ? "" : "s"} loaded.`, true);
+    }
+  } catch (e) {
+    if (myGen === renderGeneration) toast("Could not load requests: " + e.message, false);
+  } finally {
+    // Only clear busy/loading state if nothing newer has taken over — otherwise this stale
+    // call's cleanup would prematurely re-enable a Refresh button a genuinely-still-running
+    // newer operation (e.g. a poll) needs to stay disabled.
+    if (myGen === renderGeneration) {
+      loading.classList.add("hidden");
+      setRefreshBusy(false);
+    }
+  }
+}
+
+function computeStatus(entry) {
+  const { issue, license } = entry;
+  const body = issue.body || "";
+  if (issue.state === "closed") {
+    return license ? { label: "SIGNED", cls: "badge-signed" } : { label: "CLOSED / REJECTED", cls: "badge-closed" };
+  }
+  const paymentRequired = getField(body, "Payment Required").toLowerCase() === "yes";
+  if (paymentRequired) {
+    const hasLink = getField(body, "Payment Link") || getField(body, "Payment UPI Link (GPay)") || getField(body, "Payment UPI Link (PhonePe)");
+    return hasLink ? { label: "AWAITING PAYMENT", cls: "badge-payment" } : { label: "APPROVAL PENDING", cls: "badge-approval" };
+  }
+  const run = findRunForIssue(issue.created_at);
+  if (run) return { label: "AWAITING YOUR APPROVAL", cls: "badge-approval" };
+  return { label: "NEW", cls: "badge-new" };
+}
+
+function renderIssueList() {
+  const listEl = document.getElementById("issueList");
+  const empty = document.getElementById("listEmpty");
+  const stateF = document.getElementById("fltState").value;
+  const productF = document.getElementById("fltProduct").value;
+  const searchF = document.getElementById("fltSearch").value.trim().toLowerCase();
+
+  listEl.innerHTML = "";
+  let shown = 0;
+
+  for (const entry of allIssues) {
+    const { issue } = entry;
+    const body = issue.body || "";
+    if (stateF !== "all" && issue.state !== stateF) continue;
+    const product = getField(body, "Product") || "ambill";
+    if (productF !== "all" && product !== productF) continue;
+    const company = getField(body, "Company Name") || "";
+    const uid = getField(body, "Machine ID") || "";
+    const contactPerson = getField(body, "Contact Person") || "";
+    const contactPhone = getField(body, "Contact Phone") || "";
+    if (searchF && ![company, uid, contactPerson, contactPhone].some(v => v.toLowerCase().includes(searchF))) continue;
+
+    shown++;
+    const status = computeStatus(entry);
+    const li = document.createElement("li");
+    li.className = "issue-item" + (issue.number === selectedIssueNumber ? " selected" : "");
+    li.dataset.status = status.cls;
+    li.innerHTML = `<div class="row-between">
+        <div>
+          <div class="company">${escapeHtml(company) || "(no company name)"}</div>
+          <div class="meta">#${issue.number} · ${escapeHtml(product)} · UID ${escapeHtml(uid) || "?"}</div>
+          <div class="meta">opened ${new Date(issue.created_at).toLocaleDateString()}</div>
+        </div>
+        <span class="badge ${status.cls}">${status.label}</span>
+      </div>`;
+    li.onclick = () => openIssue(entry);
+    listEl.appendChild(li);
+  }
+  empty.classList.toggle("hidden", shown > 0);
+}
+document.getElementById("fltState").onchange = renderIssueList;
+document.getElementById("fltProduct").onchange = renderIssueList;
+document.getElementById("fltSearch").oninput = renderIssueList;
+
+// ── Detail / form ────────────────────────────────────────────────────────
+let currentEntry = null;
+
+function openIssue(entry) {
+  currentEntry = entry;
+  selectedIssueNumber = entry.issue.number;
+  const { issue, license } = entry;
+  const body = issue.body || "";
+
+  document.getElementById("emptyDetail").classList.add("hidden");
+  document.getElementById("formCard").classList.remove("hidden");
+  document.getElementById("layoutRoot").classList.add("detail-open");
+  hideRunProgress(); // clear any run-progress checklist left over from a different request
+  renderIssueList();
+
+  document.getElementById("formTitle").textContent = `Request #${issue.number}`;
+  const statePill = document.getElementById("formStatePill");
+  statePill.textContent = issue.state;
+  statePill.className = "state-pill " + issue.state;
+
+  const status = computeStatus(entry);
+  const readonlyBlockEl = document.getElementById("readonlyBlock");
+  readonlyBlockEl.style.setProperty("--accent", accentColorVar(status.cls));
+  readonlyBlockEl.innerHTML =
+    statCell("Company", escapeHtml(getField(body, "Company Name")), { full: true }) +
+    statCell("Contact", escapeHtml(getField(body, "Contact Person")) + " — " + escapeHtml(getField(body, "Contact Phone")), { full: true }) +
+    statCell("Machine ID", escapeHtml(getField(body, "Machine ID")), { mono: true }) +
+    statCell("Status", `<span class="badge ${status.cls}">${status.label}</span>`, { keepEmpty: true });
+
+  renderLicenseCrashSection(getField(body, "Machine ID"), issue.number);
+
+  const licenseBox = document.getElementById("licenseBox");
+  if (license) {
+    licenseBox.classList.remove("hidden");
+    document.getElementById("licenseText").textContent = license;
+  } else {
+    licenseBox.classList.add("hidden");
+  }
+
+  renderPaymentProof(entry.comments || []);
+  renderHistory(entry.comments || []);
+
+  const extendBtn = document.getElementById("extendBtn");
+  extendBtn.classList.toggle("hidden", !license);
+  extendBtn.disabled = false;
+  extendBtn.textContent = "🔄 Extend License";   // reset from "Extending..." etc.
+
+  setSelectValue("fRequestType", getField(body, "Request Type") || "New Activation");
+  const prevUid = getField(body, "Previous Machine ID (only if switching computers)");
+  document.getElementById("fPreviousUid").value = prevUid;
+  const prevMatch = getAutocompleteSource().find(x => x.uid === prevUid);
+  showPrevUidFromHint(prevMatch ? prevMatch.company : null);
+  setSelectValue("fProduct", getField(body, "Product") || "ambill");
+  setSelectValue("fLicenseType", getField(body, "Requested License Type") || "Paid");
+  document.getElementById("fExpiryDate").value = dateFromTodayPlusDays(getField(body, "Requested Expiry (days from approval)") || "365");
+  updateExpiryDaysLabel();
+  setSelectValue("fPaymentRequired", getField(body, "Payment Required") || "No");
+  document.getElementById("fPaymentAmount").value = getField(body, "Payment Amount (INR)");
+  setSelectValue("fPaymentProvider", getField(body, "Payment Provider") || "UPI QR");
+  togglePaymentFields();
+
+  const markPaidBtn = document.getElementById("markPaidBtn");
+  const isAwaitingPayment = issue.state === "open" && getField(body, "Payment Required").toLowerCase() === "yes";
+  markPaidBtn.classList.toggle("hidden", !isAwaitingPayment);
+  markPaidBtn.disabled = false;
+  markPaidBtn.textContent = "✓ Mark Payment Received & Release License";   // reset from "Releasing..." etc.
+
+  const run = findRunForIssue(issue.created_at);
+  const approveBtn = document.getElementById("approveBtn");
+  const approvalHint = document.getElementById("approvalHint");
+  approveBtn.textContent = "✓ Approve & Sign Now";   // reset from "Signing in progress..." etc.
+  if (issue.state === "open" && run) {
+    approveBtn.disabled = false;
+    approvalHint.classList.remove("hidden");
+    approvalHint.innerHTML = `Matched to workflow run <a class="gh-link" href="${run.html_url}" target="_blank">#${run.run_number}</a> (started ${new Date(run.created_at).toLocaleString()}) — verify this looks right before approving.`;
+  } else {
+    approveBtn.disabled = true;
+    approvalHint.classList.remove("hidden");
+    approvalHint.textContent = issue.state !== "open"
+      ? "This request is closed — nothing to approve."
+      : "No workflow run is currently waiting on this request (already signed, payment-gated, or not yet triggered). Check the Actions tab.";
+  }
+
+  document.getElementById("closeBtn").classList.toggle("hidden", issue.state !== "open");
+  document.getElementById("reopenBtn").classList.toggle("hidden", issue.state !== "closed");
+  document.getElementById("commentText").value = "";
+  document.getElementById("saveHint").textContent = "";
+}
+function setSelectValue(id, value) {
+  const el = document.getElementById(id);
+  if (!value) return;
+  for (const opt of el.options) if (opt.value === value || opt.text === value) { el.value = opt.value; return; }
+}
+function togglePaymentFields() {
+  const req = document.getElementById("fPaymentRequired").value === "Yes";
+  document.getElementById("paymentFields").classList.toggle("hidden", !req);
+}
+document.getElementById("fPaymentRequired").onchange = togglePaymentFields;
+document.getElementById("backBtn").onclick = () => {
+  selectedIssueNumber = null;
+  currentEntry = null;
+  document.getElementById("formCard").classList.add("hidden");
+  document.getElementById("emptyDetail").classList.remove("hidden");
+  document.getElementById("layoutRoot").classList.remove("detail-open");
+  renderIssueList();
+};
+document.getElementById("refreshBtn").onclick = () => {
+  if (currentView === "crash") loadCrashList(true);
+  else if (currentView === "releases") loadReleasesList(true);
+  else loadIssueList(true);
+};
+// Mirrors the topbar Refresh button but lives inside the detail panel itself — on a phone,
+// with the request list hidden while a detail is open (see .detail-open above), the topbar
+// button can be a full scroll away. This one is always right there.
+document.getElementById("detailRefreshBtn").onclick = () => loadIssueList(true);
+
+// Reads the form fields into a new body string, PATCHes the issue, and updates currentEntry
+// in place. Shared by the plain Save button and Mark Payment Received (which needs to save
+// too, after flipping Payment Required, before triggering a sign).
+function buildUpdatedBody() {
+  let body = currentEntry.issue.body || "";
+  body = setField(body, "Request Type", document.getElementById("fRequestType").value);
+  body = setField(body, "Previous Machine ID (only if switching computers)", document.getElementById("fPreviousUid").value.trim());
+  body = setField(body, "Product", document.getElementById("fProduct").value);
+  body = setField(body, "Requested License Type", document.getElementById("fLicenseType").value);
+  const expiryDateStr = document.getElementById("fExpiryDate").value;
+  const expiryDays = expiryDateStr ? Math.max(1, daysBetweenTodayAnd(expiryDateStr)) : 365;
+  body = setField(body, "Requested Expiry (days from approval)", String(expiryDays));
+  body = setField(body, "Payment Required", document.getElementById("fPaymentRequired").value);
+  body = setField(body, "Payment Amount (INR)", document.getElementById("fPaymentAmount").value.trim());
+  body = setField(body, "Payment Provider", document.getElementById("fPaymentProvider").value);
+  return body;
+}
+async function saveFields() {
+  const body = buildUpdatedBody();
+  await gh(`/issues/${currentEntry.issue.number}`, { method: "PATCH", body: JSON.stringify({ body }) });
+  currentEntry.issue.body = body;
+  const idx = allIssues.findIndex(e => e.issue.number === currentEntry.issue.number);
+  if (idx >= 0) allIssues[idx].issue.body = body;
+  return body;
+}
+
+document.getElementById("saveBtn").onclick = async () => {
+  const btn = document.getElementById("saveBtn");
+  btn.disabled = true;
+  document.getElementById("saveHint").textContent = "Saving...";
+  try {
+    await saveFields();
+    // Re-render from the just-saved body (status badge, list badge, Mark-Paid visibility all
+    // read the body) AND re-fetch waiting runs (approveBtn depends on live GitHub state that
+    // Save itself doesn't touch, but staff routinely edit Payment Required right before
+    // approving — this is the point where they most need it current, not a separate manual
+    // Refresh click). openIssue() re-selects the saved hint text below, so re-run it last.
+    await loadWaitingRuns();
+    openIssue(currentEntry); // openIssue() already re-renders the list itself, no separate call needed
+    toast(`Saved request #${currentEntry.issue.number}.`, true);
+    document.getElementById("saveHint").textContent = "Saved ✓";
+  } catch (e) {
+    toast("Save failed: " + e.message, false);
+  } finally {
+    btn.disabled = false;
+  }
+};
+
+document.getElementById("markPaidBtn").onclick = async () => {
+  const issueNumber = currentEntry.issue.number;
+  const ok = await customConfirm(
+    "Mark this payment as received and release the license? This sets Payment Required to No and triggers signing immediately.",
+    { title: "Mark Payment Received", confirmText: "Mark Received & Release", kind: "info" }
+  );
+  if (!ok) return;
+  const btn = document.getElementById("markPaidBtn");
+  const approvalHint = document.getElementById("approvalHint");
+  btn.disabled = true;
+  try {
+    document.getElementById("fPaymentRequired").value = "No";
+    togglePaymentFields();
+    await saveFields();
+    const dispatchTime = Date.now();
+    await gh(`/actions/workflows/payment-verification.yml/dispatches`, {
+      method: "POST",
+      body: JSON.stringify({ ref: "main" })
+    });
+    btn.textContent = "⏳ Releasing license...";
+    toast("Marked as paid — releasing the license now.", true);
+    // A workflow_dispatch call doesn't hand back the run it creates, so this is a fire-and-
+    // forget best-effort lookup by timing, not awaited here — pollForApprovalResult picks up
+    // the run id whenever this resolves (or never shows the checklist if it comes up empty,
+    // e.g. an API hiccup — the issue-state polling below is unaffected either way).
+    const runLookup = findRunAfterDispatch("payment-verification.yml", dispatchTime);
+    await pollForApprovalResult(issueNumber, runLookup);
+    return;
+  } catch (e) {
+    toast("Could not mark as paid: " + e.message, false);
+    btn.disabled = false;
+  }
+};
+
+document.getElementById("approveBtn").onclick = async () => {
+  const run = findRunForIssue(currentEntry.issue.created_at);
+  if (!run) return;
+  const issueNumber = currentEntry.issue.number;
+  const ok = await customConfirm(
+    `Approve workflow run #${run.run_number} and sign this license now?`,
+    { title: "Approve & Sign", confirmText: "Approve & Sign", kind: "info" }
+  );
+  if (!ok) return;
+  const btn = document.getElementById("approveBtn");
+  btn.disabled = true;
+  try {
+    const pending = await gh(`/actions/runs/${run.id}/pending_deployments`);
+    const envIds = pending.map(p => p.environment.id);
+    if (!envIds.length) throw new Error("No pending environment found on this run — it may have already been actioned.");
+    await gh(`/actions/runs/${run.id}/pending_deployments`, {
+      method: "POST",
+      body: JSON.stringify({ environment_ids: envIds, state: "approved", comment: "Approved via ambill admin page" })
+    });
+    // This run is no longer actually waiting — stop findRunForIssue matching it until the
+    // next full list reload, otherwise the detail panel would keep claiming it's still
+    // awaiting approval even though it just got approved.
+    waitingRuns = waitingRuns.filter(r => r.id !== run.id);
+    btn.textContent = "⏳ Signing in progress...";
+    toast("Approved — waiting for the signing job to finish.", true);
+    await pollForApprovalResult(issueNumber, run.id);
+    // Leave the button disabled/relabeled on success — re-approving an already-approved
+    // run makes no sense, and openIssue() (called by pollForApprovalResult once something
+    // changes) will overwrite this label/state correctly for whatever comes next anyway.
+    return;
+  } catch (e) {
+    if (e.message.includes("403") || e.message.includes("not accessible")) {
+      approvalHintFallback(run);
+      toast("Your token can't approve deployments yet — see the note below.", false);
+    } else {
+      toast("Approve failed: " + e.message, false);
+    }
+    btn.disabled = false;
+  }
+};
+
+document.getElementById("extendBtn").onclick = async () => {
+  const issueNumber = currentEntry.issue.number;
+  const daysStr = window.prompt("Extend this license — new expiry, days from today:", "365");
+  if (daysStr === null) return;
+  const days = parseInt(daysStr, 10);
+  if (!Number.isFinite(days) || days <= 0) { toast("Enter a valid number of days.", false); return; }
+  const ok = await customConfirm(
+    `Issue a new license for this machine, expiring ${days} days from today? The previous license keeps working until then — this doesn't revoke anything.`,
+    { title: "Extend License", confirmText: "Extend License", kind: "info" }
+  );
+  if (!ok) return;
+  const btn = document.getElementById("extendBtn");
+  btn.disabled = true;
+  try {
+    const previousLicense = currentEntry.license;
+    const dispatchTime = Date.now();
+    await gh(`/actions/workflows/license-extend.yml/dispatches`, {
+      method: "POST",
+      body: JSON.stringify({ ref: "main", inputs: { issue_number: String(issueNumber), expiry_days: String(days) } })
+    });
+    btn.textContent = "⏳ Extending...";
+    toast("Extending the license now.", true);
+    // Same fire-and-forget run lookup markPaidBtn uses. Unlike that button, the issue here may
+    // already be closed WITH a license before this dispatch even runs, so "closed + has a
+    // license" alone isn't a valid success signal — pollForApprovalResult is told the previous
+    // license text so it keeps waiting until a genuinely NEW one shows up in the comments.
+    const runLookup = findRunAfterDispatch("license-extend.yml", dispatchTime);
+    await pollForApprovalResult(issueNumber, runLookup, previousLicense);
+    return;
+  } catch (e) {
+    toast("Could not extend the license: " + e.message, false);
+    btn.disabled = false;
+    btn.textContent = "🔄 Extend License";
+  }
+};
+
+async function fetchIssueEntry(number) {
+  const issue = await gh(`/issues/${number}`);
+  let comments = [];
+  try { comments = await gh(`/issues/${number}/comments?per_page=30`); } catch (e) {}
+  return { issue, comments, license: extractLicenseFromComments(comments) };
+}
+
+// ── Live run progress (GitHub-Actions-style step checklist) ────────────────────────────────
+// A workflow_dispatch call (used by "Mark Payment Received") doesn't return a run id — GitHub
+// has no direct way to link a dispatch call to the run it created. Same proximity heuristic
+// already used by findRunForIssue: list recent runs of that workflow and take the first one
+// created at/after the dispatch, giving it a few attempts since the run can take a couple of
+// seconds to appear in the list at all.
+async function findRunAfterDispatch(workflowFile, sinceTimeMs) {
+  for (let attempt = 0; attempt < 6; attempt++) {
+    await new Promise(r => setTimeout(r, 1500));
+    try {
+      const data = await gh(`/actions/workflows/${workflowFile}/runs?event=workflow_dispatch&per_page=5`);
+      const run = (data.workflow_runs || []).find(r => new Date(r.created_at).getTime() >= sinceTimeMs - 5000);
+      if (run) return run;
+    } catch (e) { /* keep trying */ }
+  }
+  return null;
+}
+
+// payment-verification.yml runs one matrix job per pending issue in a single run, named like
+// "verify-and-sign (2, false, UPI QR, ...)" with the issue number first — match on that so a
+// run covering several issues at once still shows THIS issue's own steps. license-signing.yml
+// has no matrix (a single "sign" job), where matching nothing and falling back to jobs[0] is
+// exactly right.
+async function fetchStepsForRun(runId, issueNumber) {
+  const data = await gh(`/actions/runs/${runId}/jobs`);
+  const jobs = data.jobs || [];
+  const job = jobs.find(j => j.name.includes(`(${issueNumber},`)) || jobs[0];
+  return job ? job.steps : null;
+}
+
+function renderRunProgress(steps) {
+  const box = document.getElementById("runProgressBox");
+  if (!steps || !steps.length) { box.classList.add("hidden"); box.innerHTML = ""; return; }
+
+  const total = steps.length;
+  const done = steps.filter(s => s.status === "completed").length;
+  const pct = Math.round((done / total) * 100);
+
+  const rows = steps.map(s => {
+    let icon = "○", cls = "step-pending";
+    if (s.status === "completed") {
+      if (s.conclusion === "success") { icon = "✓"; cls = "step-ok"; }
+      else if (s.conclusion === "skipped" || s.conclusion === "cancelled") { icon = "–"; cls = "step-skip"; }
+      else { icon = "✕"; cls = "step-fail"; }
+    } else if (s.status === "in_progress") {
+      icon = "●"; cls = "step-active";
+    }
+    return `<div class="run-step ${cls}"><span class="run-step-icon">${icon}</span>${escapeHtml(s.name)}</div>`;
+  }).join("");
+
+  box.innerHTML = `
+    <div class="run-progress-card">
+      <div class="run-progress-title">⚙ Signing job progress</div>
+      <div class="run-progress-bar"><div class="run-progress-fill" style="width:${pct}%"></div></div>
+      <div class="run-steps">${rows}</div>
+    </div>`;
+  box.classList.remove("hidden");
+}
+
+function hideRunProgress() {
+  const box = document.getElementById("runProgressBox");
+  box.classList.add("hidden");
+  box.innerHTML = "";
+}
+
+// After approving, the signing job still has to actually run (checkout, read fields, sign
+// or generate a payment link, post back to the issue) — typically ~15-30s, not instant. Polls
+// the single issue directly (cheap — 2 calls per attempt) rather than re-fetching everything,
+// and only re-renders once something has actually changed, so the admin isn't left staring at
+// a page that looks like nothing happened after a successful approval.
+// runIdOrPromise (optional): a plain run id (approveBtn always has one directly) or a Promise
+// that resolves to one (markPaidBtn's findRunAfterDispatch lookup, still in flight when this
+// is called — not awaited upfront so the actual issue-state polling isn't delayed by it).
+// Whichever it is, once a run id is known, each attempt also fetches that run's job steps and
+// renders a GitHub-Actions-style progress bar + checklist, instead of leaving the admin
+// watching only a "checking again shortly (N/12)" counter with no sense of what's happening.
+async function pollForApprovalResult(issueNumber, runIdOrPromise, requireLicenseChangeFrom) {
+  const approvalHint = document.getElementById("approvalHint");
+  const originalBody = currentEntry.issue.body || "";
+  const maxAttempts = 12;
+  // Takes over as the authoritative render operation for the rest of this poll — supersedes
+  // any earlier loadIssueList() still in flight, so a slow Refresh started just before this
+  // can't resolve later and clobber the poll's result. If something even newer than THIS poll
+  // starts (another Refresh click, another poll), myGen stops matching and every render below
+  // is skipped rather than fighting the newer operation for the last word.
+  const myGen = ++renderGeneration;
+  let runId = null;
+  if (runIdOrPromise != null) {
+    if (typeof runIdOrPromise.then === "function") {
+      runIdOrPromise.then(r => { if (r) runId = r.id; });
+    } else {
+      runId = runIdOrPromise;
+    }
+  }
+  let fresh = null;
+  let lastSteps = null;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    if (myGen !== renderGeneration) return;
+    if (approvalHint) {
+      approvalHint.classList.remove("hidden");
+      approvalHint.textContent = `Waiting for the signing job to finish — checking again shortly (${attempt}/${maxAttempts})...`;
+    }
+    await new Promise(r => setTimeout(r, 4000));
+    if (myGen !== renderGeneration) return;
+    try { fresh = await fetchIssueEntry(issueNumber); } catch (e) { continue; }
+    if (myGen !== renderGeneration) return;
+
+    if (runId) {
+      try { lastSteps = await fetchStepsForRun(runId, issueNumber); } catch (e) { /* keep last known */ }
+      if (myGen !== renderGeneration) return;
+      renderRunProgress(lastSteps);
+    }
+
+    const idx = allIssues.findIndex(e => e.issue.number === issueNumber);
+    if (idx >= 0) allIssues[idx] = fresh;
+
+    // Closing the issue and posting the license comment happen sequentially in the same job,
+    // but GitHub's comments list can lag a beat behind the issue's own state becoming visible
+    // via the API — closed-but-no-license-yet is a brief transient, not "rejected". Keep
+    // polling through it instead of finalizing on a false "CLOSED / REJECTED" read; a genuine
+    // reject (via Close/Reject) doesn't go through this poll at all.
+    const closedWithLicense = fresh.issue.state !== "open" && fresh.license &&
+      (requireLicenseChangeFrom == null || fresh.license !== requireLicenseChangeFrom);
+    const stillOpenButBodyChanged = fresh.issue.state === "open" && (fresh.issue.body || "") !== originalBody;
+    if (closedWithLicense || stillOpenButBodyChanged) {
+      const stillSelected = currentEntry && currentEntry.issue.number === issueNumber;
+      if (stillSelected) openIssue(fresh);
+      else renderIssueList();
+      // openIssue() clears runProgressBox as part of its own render (see openIssue) — put the
+      // completed checklist back so the admin sees a full green run, not just a toast, on the
+      // exact result they were watching for.
+      if (stillSelected && lastSteps) renderRunProgress(lastSteps);
+      toast(closedWithLicense
+        ? (requireLicenseChangeFrom != null ? "License extended — new expiry posted to the request." : "License signed and the request was closed.")
+        : "Payment link is ready.", true);
+      return;
+    }
+    renderIssueList();
+  }
+  if (myGen !== renderGeneration) return;
+  // Ran out of attempts — render whatever the last fetch actually found (even an imperfect
+  // "closed, no license visible yet" read) rather than leaving the panel frozen on its
+  // pre-poll state, which would be even more stale and misleading than this.
+  if (fresh) {
+    const stillSelected = currentEntry && currentEntry.issue.number === issueNumber;
+    if (stillSelected) openIssue(fresh); else renderIssueList();
+    if (stillSelected && lastSteps) renderRunProgress(lastSteps);
+  }
+  if (approvalHint) {
+    approvalHint.classList.remove("hidden");
+    approvalHint.innerHTML = `Still nothing after a minute of checking — the job may be slower than usual, or something went wrong. <a class="gh-link" href="https://github.com/ampro-repos/ambill-releases/actions" target="_blank">Check the Actions tab →</a>, or click Refresh above.`;
+  }
+  // Reset whichever button triggered this poll (approve or mark-paid) — resetting the other
+  // one too is harmless since openIssue() already hid/disabled it correctly for this state.
+  document.getElementById("approveBtn").disabled = false;
+  document.getElementById("approveBtn").textContent = "✓ Approve & Sign Now";
+  document.getElementById("markPaidBtn").disabled = false;
+  document.getElementById("markPaidBtn").textContent = "✓ Mark Payment Received & Release License";
+  document.getElementById("extendBtn").disabled = false;
+  document.getElementById("extendBtn").textContent = "🔄 Extend License";
+}
+
+// Shown on a 403 approving a deployment. Two independent causes, both worth
+// checking (per GitHub's own docs for this endpoint): the token is missing
+// the "Deployments" fine-grained permission (a separate permission from
+// "Actions", easy to miss), OR the token's own account isn't the environment's
+// actual required reviewer — only that account can ever approve, regardless
+// of what permissions its token has.
+function approvalHintFallback(run) {
+  const approvalHint = document.getElementById("approvalHint");
+  approvalHint.innerHTML = `Your token can't approve deployments yet. Two things to check:
+    <br>1) Edit your token (<a class="gh-link" href="https://github.com/settings/tokens?type=beta" target="_blank">Settings → Developer settings → Fine-grained tokens</a>)
+    and add <b>Deployments → Read and write</b> — separate from "Actions".
+    <br>2) The token must belong to <b>mcankalx</b> specifically (the required reviewer on the license-signing environment) — a token from any other account will 403 no matter its permissions.
+    <br>In the meantime, approve this one directly:
+    <a class="gh-link" href="${run.html_url}" target="_blank">open run #${run.run_number} →</a>`;
+}
+
+document.getElementById("runPaymentCheckBtn").onclick = async () => {
+  const btn = document.getElementById("runPaymentCheckBtn");
+  btn.disabled = true;
+  try {
+    await gh(`/actions/workflows/payment-verification.yml/dispatches`, {
+      method: "POST",
+      body: JSON.stringify({ ref: "main" })
+    });
+    toast("Payment check triggered — refresh in ~30s.", true);
+  } catch (e) {
+    toast("Could not trigger payment check: " + e.message, false);
+  } finally {
+    btn.disabled = false;
+  }
+};
+
+document.getElementById("closeBtn").onclick = async () => {
+  const ok = await customConfirm(
+    `Close request #${currentEntry.issue.number} without issuing a license?`,
+    { title: "Close / Reject Request", confirmText: "Close Request", kind: "warn" }
+  );
+  if (!ok) return;
+  try {
+    await gh(`/issues/${currentEntry.issue.number}`, { method: "PATCH", body: JSON.stringify({ state: "closed" }) });
+    toast("Request closed.", true);
+    loadIssueList();
+  } catch (e) {
+    toast("Close failed: " + e.message, false);
+  }
+};
+
+document.getElementById("reopenBtn").onclick = async () => {
+  try {
+    await gh(`/issues/${currentEntry.issue.number}`, { method: "PATCH", body: JSON.stringify({ state: "open" }) });
+    toast("Request reopened.", true);
+    loadIssueList();
+  } catch (e) {
+    toast("Reopen failed: " + e.message, false);
+  }
+};
+
+document.getElementById("revokeBtn").onclick = async () => {
+  const body = currentEntry.issue.body || "";
+  const uid = getField(body, "Machine ID");
+  if (!uid) { toast("No Machine ID found on this request.", false); return; }
+  const ok = await customConfirm(
+    `Revoke machine UID ${uid}? This immediately invalidates its license on next app launch (fails open if offline).`,
+    { title: "Revoke This Machine", confirmText: "Revoke", kind: "danger" }
+  );
+  if (!ok) return;
+  const btn = document.getElementById("revokeBtn");
+  btn.disabled = true;
+  try {
+    const file = await gh(`/contents/revoked-uids.json`);
+    const list = JSON.parse(decodeURIComponent(escape(atob(file.content.replace(/\n/g, "")))) || "[]");
+    list.push({ uid, revokedAt: new Date().toISOString(), reason: "Revoked manually via admin page" });
+    const newContent = btoa(unescape(encodeURIComponent(JSON.stringify(list, null, 2))));
+    await gh(`/contents/revoked-uids.json`, {
+      method: "PUT",
+      body: JSON.stringify({
+        message: `Revoke UID ${uid} (via admin page)`,
+        content: newContent,
+        sha: file.sha
+      })
+    });
+    toast(`UID ${uid} revoked.`, true);
+  } catch (e) {
+    toast("Revoke failed: " + e.message, false);
+  } finally {
+    btn.disabled = false;
+  }
+};
+
+document.getElementById("commentBtn").onclick = async () => {
+  const text = document.getElementById("commentText").value.trim();
+  if (!text) return;
+  const btn = document.getElementById("commentBtn");
+  btn.disabled = true;
+  try {
+    const newComment = await gh(`/issues/${currentEntry.issue.number}/comments`, { method: "POST", body: JSON.stringify({ body: text }) });
+    // The GitHub API call above is the only thing that actually posts it — everything below is
+    // just keeping the in-memory state (and therefore the visible UI) in sync with that, since
+    // nothing else here re-fetches comments automatically. Without this, a comment that's
+    // itself a pasted license string, or a payment-proof note, wouldn't be picked up by
+    // renderPaymentProof()/extractLicenseFromComments() until a manual refresh.
+    currentEntry.comments = [...(currentEntry.comments || []), newComment];
+    const idx = allIssues.findIndex(e => e.issue.number === currentEntry.issue.number);
+    if (idx >= 0) allIssues[idx].comments = currentEntry.comments;
+    currentEntry.license = extractLicenseFromComments(currentEntry.comments);
+    toast("Comment posted.", true);
+    document.getElementById("commentText").value = "";
+    openIssue(currentEntry);
+  } catch (e) {
+    toast("Comment failed: " + e.message, false);
+  } finally {
+    btn.disabled = false;
+  }
+};
+
+// ── Crash Reports (ambill-error-reports repo) ───────────────────────────────
+// Same "### Label\n\nvalue" body convention ErrorReportingService.cs writes
+// (see BillingApp's Helper\ErrorReportingService.cs) — getField/setField above
+// already parse that generically, reused as-is.
+let allCrashIssues = [];
+let selectedCrashNumber = null;
+let currentCrashEntry = null;
+let crashRenderGeneration = 0;
+
+function severityBadgeClass(sev) {
+  if (sev === "Fatal") return "badge-fatal";
+  if (sev === "Unobserved") return "badge-unobserved";
+  if (sev === "Caught") return "badge-caught";
+  return "badge-recoverable";
+}
+function isIgnored(issue) {
+  return (issue.labels || []).some(l => (l.name || l) === "ignored");
+}
+function computeCrashStatus(entry) {
+  const { issue } = entry;
+  const body = issue.body || "";
+  if (isIgnored(issue)) return { label: "IGNORED", cls: "badge-ignored" };
+  if (issue.state === "closed") return { label: "CLOSED", cls: "badge-closed" };
+  const sev = getField(body, "Severity") || "Recoverable";
+  return { label: sev.toUpperCase(), cls: severityBadgeClass(sev) };
+}
+// Recurrences are posted as comments starting with "Seen again" (see
+// ErrorReportingService.CommentOnExistingIssueAsync) — the original issue
+// itself is occurrence #1.
+function countOccurrences(entry) {
+  const recurrences = (entry.comments || []).filter(c => (c.body || "").startsWith("Seen again")).length;
+  return 1 + recurrences;
+}
+
+// ── License ↔ crash-report correlation ──────────────────────────────────
+// No labels/hashing needed for this — Device UID (crash reports) and Machine ID
+// (license requests) come from the exact same LicenseHandler.GenerateUID() call
+// on the client, so a plain string match is enough. Crash issues are only
+// lazy-loaded (see crashListLoadedOnce) the first time they're needed, whether
+// that's opening the Crash Reports tab OR opening a license request — either
+// one triggers the one-time bulk fetch below.
+// Paginated — a machine that crashes a lot can accumulate dozens of reports, and this
+// section sits inside the license detail panel where unbounded growth would push the
+// actual request fields further and further down the page.
+const CRASH_HISTORY_PAGE_SIZE = 5;
+let _machineCrashMatches = [];
+let _machineCrashPage = 0;
+
+async function renderLicenseCrashSection(machineUid, forIssueNumber) {
+  const container = document.getElementById("licenseCrashList");
+  if (!machineUid) {
+    container.innerHTML = `<div class="hint">No Machine ID on this request yet.</div>`;
+    return;
+  }
+  container.innerHTML = `<div class="hint">Loading…</div>`;
+  if (!crashListLoadedOnce) {
+    crashListLoadedOnce = true;
+    try { await loadCrashList(); } catch (e) { /* loadCrashList already reports its own errors */ }
+  }
+  // The admin may have clicked a different request (or Back) while the lazy load above was
+  // still in flight — don't overwrite whatever's now actually showing.
+  if (!currentEntry || currentEntry.issue.number !== forIssueNumber) return;
+
+  _machineCrashMatches = allCrashIssues.filter(e => getField(e.issue.body || "", "Device UID") === machineUid);
+  _machineCrashPage = 0;
+  renderCrashHistoryPage();
+}
+
+function renderCrashHistoryPage() {
+  const container = document.getElementById("licenseCrashList");
+  const matches = _machineCrashMatches;
+  if (!matches.length) {
+    container.innerHTML = `<div class="hint">No crash reports from this machine.</div>`;
+    return;
+  }
+
+  const totalPages = Math.max(1, Math.ceil(matches.length / CRASH_HISTORY_PAGE_SIZE));
+  _machineCrashPage = Math.max(0, Math.min(_machineCrashPage, totalPages - 1));
+  const start = _machineCrashPage * CRASH_HISTORY_PAGE_SIZE;
+  const pageItems = matches.slice(start, start + CRASH_HISTORY_PAGE_SIZE);
+
+  const itemsHtml = pageItems.map(entry => {
+    const eBody = entry.issue.body || "";
+    const status = computeCrashStatus(entry);
+    const exceptionType = getField(eBody, "Exception Type") || "Unknown";
+    const occurrences = countOccurrences(entry);
+    // Same "reported <datetime>" (+ "last <datetime>" once it's recurred) the main Crash
+    // Reports list shows — this section never got that when pagination was added here.
+    const lastSeenIso = entry.comments && entry.comments.length
+      ? entry.comments[entry.comments.length - 1].created_at
+      : entry.issue.created_at;
+    return `<div class="history-item">
+      <div class="row-between">
+        <div><b>${escapeHtml(shortenExceptionType(exceptionType))}</b></div>
+        <span class="badge ${status.cls}">${status.label}</span>
+      </div>
+      <div class="hwhen">#${entry.issue.number} · seen ${occurrences}× · reported ${new Date(entry.issue.created_at).toLocaleString()}${occurrences > 1 ? " · last " + new Date(lastSeenIso).toLocaleString() : ""} ·
+        <a class="gh-link" href="#" onclick="viewCrashDetailsFromLicense(${entry.issue.number}); return false;">View Details →</a> ·
+        <a class="gh-link" href="https://github.com/${OWNER}/${CRASH_REPO}/issues/${entry.issue.number}" target="_blank">View on GitHub →</a>
+      </div>
+    </div>`;
+  }).join("");
+
+  const pagerHtml = totalPages <= 1 ? "" : `
+    <div class="row-between" style="margin-top:6px;">
+      <button class="btn-secondary" style="padding:4px 10px; font-size:12px;" onclick="changeCrashHistoryPage(-1)" ${_machineCrashPage === 0 ? "disabled" : ""}>← Prev</button>
+      <span class="hint">Page ${_machineCrashPage + 1} of ${totalPages} (${matches.length} total)</span>
+      <button class="btn-secondary" style="padding:4px 10px; font-size:12px;" onclick="changeCrashHistoryPage(1)" ${_machineCrashPage >= totalPages - 1 ? "disabled" : ""}>Next →</button>
+    </div>`;
+
+  container.innerHTML = itemsHtml + pagerHtml;
+}
+
+function changeCrashHistoryPage(delta) {
+  _machineCrashPage += delta;
+  renderCrashHistoryPage();
+}
+
+// "View Details" jumps to the Crash Reports tab and opens this exact issue there, instead
+// of leaving GitHub as the only way to see the full report (repro steps, stack trace,
+// comment history) from the license page.
+function viewCrashDetailsFromLicense(crashIssueNumber) {
+  const entry = allCrashIssues.find(e => e.issue.number === crashIssueNumber);
+  if (!entry) { toast("Crash report not loaded yet — try Refresh.", false); return; }
+  switchView("crash");
+  openCrashIssue(entry);
+}
+
+async function loadCrashList(announceSuccess) {
+  const listEl = document.getElementById("crashIssueList");
+  const empty = document.getElementById("crashListEmpty");
+  const loading = document.getElementById("crashListLoading");
+  const myGen = ++crashRenderGeneration;
+  setRefreshBusy(true);
+  listEl.innerHTML = "";
+  empty.classList.add("hidden");
+  loading.classList.remove("hidden");
+  try {
+    const issues = await ghCrash(`/issues?labels=crash-report&state=all&per_page=100`);
+    const fetched = await Promise.all(issues.map(async issue => {
+      let comments = [];
+      try { comments = await ghCrash(`/issues/${issue.number}/comments?per_page=50`); } catch (e) {}
+      return { issue, comments };
+    }));
+    if (myGen !== crashRenderGeneration) return;
+    allCrashIssues = fetched;
+    renderCrashList();
+    if (selectedCrashNumber != null) {
+      const fresh = allCrashIssues.find(e => e.issue.number === selectedCrashNumber);
+      if (fresh) openCrashIssue(fresh);
+    }
+    if (announceSuccess) {
+      toast(`Updated — ${allCrashIssues.length} crash report${allCrashIssues.length === 1 ? "" : "s"} loaded.`, true);
+    }
+  } catch (e) {
+    if (myGen === crashRenderGeneration) toast("Could not load crash reports: " + e.message, false);
+  } finally {
+    if (myGen === crashRenderGeneration) {
+      loading.classList.add("hidden");
+      setRefreshBusy(false);
+    }
+  }
+}
+
+function renderCrashList() {
+  const listEl = document.getElementById("crashIssueList");
+  const empty = document.getElementById("crashListEmpty");
+  const stateF = document.getElementById("crashFltState").value;
+  const sevF = document.getElementById("crashFltSeverity").value;
+  const showIgnored = document.getElementById("crashShowIgnored").checked;
+  const searchF = document.getElementById("crashFltSearch").value.trim().toLowerCase();
+  const fromF = document.getElementById("crashFltFromDate").value;
+  const toF = document.getElementById("crashFltToDate").value;
+
+  listEl.innerHTML = "";
+  let shown = 0;
+
+  for (const entry of allCrashIssues) {
+    const { issue } = entry;
+    const body = issue.body || "";
+    if (!showIgnored && isIgnored(issue)) continue;
+    if (stateF !== "all" && issue.state !== stateF) continue;
+    const severity = getField(body, "Severity") || "Recoverable";
+    if (sevF !== "all" && severity !== sevF) continue;
+    const exceptionType = getField(body, "Exception Type") || "";
+    const message = getField(body, "Message") || "";
+    if (searchF && ![exceptionType, message].some(v => v.toLowerCase().includes(searchF))) continue;
+    // Date range filters by when the crash was first reported (issue.created_at) — an empty
+    // from/to means that end is unbounded, so clearing a field shows everything before/after.
+    if (fromF || toF) {
+      const created = new Date(issue.created_at);
+      if (fromF && created < new Date(fromF + "T00:00:00")) continue;
+      if (toF && created > new Date(toF + "T23:59:59.999")) continue;
+    }
+
+    shown++;
+    const status = computeCrashStatus(entry);
+    const occurrences = countOccurrences(entry);
+    const appVersion = getField(body, "App Version") || "?";
+    const machineName = getField(body, "Machine Name") || "";
+    const company = getField(body, "Company") || "";
+    const whoLine = [company, machineName].filter(Boolean).join(" · ");
+    const lastSeenIso = entry.comments && entry.comments.length
+      ? entry.comments[entry.comments.length - 1].created_at
+      : issue.created_at;
+    const li = document.createElement("li");
+    li.className = "issue-item" + (issue.number === selectedCrashNumber ? " selected" : "");
+    li.dataset.status = status.cls;
+    li.innerHTML = `<div class="row-between">
+        <div>
+          <div class="company">${escapeHtml(shortenExceptionType(exceptionType))}</div>
+          <div class="meta">${escapeHtml(truncateText(message, 90))}</div>
+          <div class="meta">#${issue.number} · v${escapeHtml(appVersion)} · seen ${occurrences}×</div>
+          <div class="meta">${whoLine ? escapeHtml(whoLine) + " · " : ""}reported ${new Date(issue.created_at).toLocaleString()}${occurrences > 1 ? " · last " + new Date(lastSeenIso).toLocaleString() : ""}</div>
+        </div>
+        <span class="badge ${status.cls}">${status.label}</span>
+      </div>`;
+    li.onclick = () => openCrashIssue(entry);
+    listEl.appendChild(li);
+  }
+  empty.classList.toggle("hidden", shown > 0);
+}
+// Defaults the date filters to the last 7 days (today back one week) — set once, the first
+// time the Crash Reports tab opens, so switching tabs and coming back doesn't stomp on
+// whatever range the admin has since picked. Uses local date parts, not toISOString() (which
+// is UTC and would show yesterday's date for part of the day in IST).
+function initCrashDateFilterDefaults() {
+  const fmt = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const to = new Date();
+  const from = new Date();
+  from.setDate(from.getDate() - 7);
+  document.getElementById("crashFltToDate").value = fmt(to);
+  document.getElementById("crashFltFromDate").value = fmt(from);
+}
+function shortenExceptionType(t) {
+  const parts = (t || "").split(".");
+  return parts.length ? parts[parts.length - 1] : t;
+}
+function truncateText(s, max) {
+  if (!s) return "";
+  return s.length > max ? s.slice(0, max) + "..." : s;
+}
+document.getElementById("crashFltState").onchange = renderCrashList;
+document.getElementById("crashFltSeverity").onchange = renderCrashList;
+document.getElementById("crashShowIgnored").onchange = renderCrashList;
+document.getElementById("crashFltSearch").oninput = renderCrashList;
+document.getElementById("crashFltFromDate").onchange = renderCrashList;
+document.getElementById("crashFltToDate").onchange = renderCrashList;
+
+// ── Releases tab — what the Velopack auto-updater on every install actually reads ──────────
+// GitHub Releases on this same repo (ambill-releases), published by publish-release.yml /
+// Package_Velopack_Release.ps1 via `vpk upload github --publish`. Same token/API base (gh())
+// the License Requests tab already uses — reading Releases needs nothing extra.
+let allReleases = [];
+
+async function loadReleasesList(announceSuccess) {
+  const loading = document.getElementById("releasesLoading");
+  const listEl = document.getElementById("releasesList");
+  const empty = document.getElementById("releasesEmpty");
+  setRefreshBusy(true);
+  listEl.innerHTML = "";
+  empty.classList.add("hidden");
+  loading.classList.remove("hidden");
+  try {
+    allReleases = await gh(`/releases?per_page=30`);
+    renderReleasesList();
+    if (announceSuccess) {
+      toast(`Updated — ${allReleases.length} release${allReleases.length === 1 ? "" : "s"} loaded.`, true);
+    }
+  } catch (e) {
+    toast("Could not load releases: " + e.message, false);
+  } finally {
+    loading.classList.add("hidden");
+    setRefreshBusy(false);
+  }
+}
+
+function renderReleasesList() {
+  const listEl = document.getElementById("releasesList");
+  const empty = document.getElementById("releasesEmpty");
+  if (!allReleases.length) {
+    listEl.innerHTML = "";
+    empty.classList.remove("hidden");
+    return;
+  }
+  empty.classList.add("hidden");
+  // Package_Velopack_Release.ps1 / publish-release.yml write "<!-- MANDATORY -->" as the
+  // first line of the release notes it hands to `vpk pack --releaseNotes` whenever the admin
+  // checks Mandatory — vpk carries that into the GitHub release body, and
+  // Helper/AppUpdateService.cs greps for the same marker client-side. Strip it before
+  // displaying the notes text, same as the client already treats it as invisible.
+  listEl.innerHTML = allReleases.map((r, idx) => {
+    const isLatest = idx === 0 && !r.draft && !r.prerelease;
+    const body = r.body || "";
+    const mandatory = body.includes("<!-- MANDATORY -->");
+    const notes = body.replace("<!-- MANDATORY -->", "").trim();
+    const totalDownloads = (r.assets || []).reduce((sum, a) => sum + (a.download_count || 0), 0);
+    const publishedAt = r.published_at ? new Date(r.published_at).toLocaleString() : "(not published — draft)";
+    const badge = (text, bg, fg) =>
+      `<span class="badge" style="background:${bg}; color:${fg}; margin-left:6px;">${text}</span>`;
+    return `<div class="history-item" style="margin-bottom:12px;">
+      <div class="row-between">
+        <div>
+          <b style="font-size:15px;">${escapeHtml(r.name || r.tag_name)}</b>
+          ${isLatest ? badge("LATEST", "var(--info-bg)", "var(--info)") : ""}
+          ${mandatory ? badge("MANDATORY", "var(--danger-bg)", "var(--danger)") : ""}
+          ${r.draft ? badge("DRAFT", "var(--surface-2)", "var(--muted)") : ""}
+          ${r.prerelease ? badge("PRE-RELEASE", "var(--warn-bg)", "var(--warn)") : ""}
+        </div>
+        <a class="gh-link" href="${r.html_url}" target="_blank">View on GitHub →</a>
+      </div>
+      <div class="hwhen" style="margin-top:4px;">${escapeHtml(r.tag_name)} · published ${publishedAt} · ${totalDownloads} download${totalDownloads === 1 ? "" : "s"}</div>
+      ${notes ? `<div style="margin-top:8px; font-size:13px; white-space:pre-wrap;">${escapeHtml(notes)}</div>` : ""}
+    </div>`;
+  }).join("");
+}
+
+function openCrashIssue(entry) {
+  currentCrashEntry = entry;
+  selectedCrashNumber = entry.issue.number;
+  const { issue } = entry;
+  const body = issue.body || "";
+
+  document.getElementById("crashEmptyDetail").classList.add("hidden");
+  document.getElementById("crashFormCard").classList.remove("hidden");
+  document.getElementById("crashLayoutRoot").classList.add("detail-open");
+  renderCrashList();
+
+  const exceptionType = getField(body, "Exception Type") || "Unknown";
+  document.getElementById("crashFormTitle").textContent = `#${issue.number} — ${shortenExceptionType(exceptionType)}`;
+
+  const status = computeCrashStatus(entry);
+  const statePill = document.getElementById("crashFormStatePill");
+  statePill.textContent = status.label.toLowerCase();
+  statePill.className = "state-pill " + (isIgnored(issue) ? "ignored" : issue.state);
+
+  const occurrences = countOccurrences(entry);
+  const crashReadonlyBlockEl = document.getElementById("crashReadonlyBlock");
+  crashReadonlyBlockEl.style.setProperty("--accent", accentColorVar(status.cls));
+  crashReadonlyBlockEl.innerHTML =
+    statCell("Exception", escapeHtml(exceptionType), { full: true }) +
+    statCell("Message", escapeHtml(getField(body, "Message")), { full: true }) +
+    statCell("Severity", `<span class="badge ${severityBadgeClass(getField(body, "Severity"))}">${escapeHtml(getField(body, "Severity") || "Recoverable")}</span>`, { keepEmpty: true }) +
+    statCell("App Version", escapeHtml(getField(body, "App Version"))) +
+    statCell("Device UID", escapeHtml(getField(body, "Device UID")), { full: true, mono: true }) +
+    statCell("Machine", escapeHtml(getField(body, "Machine Name"))) +
+    statCell("OS", escapeHtml(getField(body, "OS Version"))) +
+    statCell("User", escapeHtml(getField(body, "User"))) +
+    statCell("Company", escapeHtml(getField(body, "Company"))) +
+    statCell("Target Site", escapeHtml(getField(body, "Target Site")), { full: true, mono: true }) +
+    statCell("First Seen", escapeHtml(getField(body, "First Seen (UTC)")) + " UTC", { keepEmpty: true }) +
+    statCell("Occurrences", occurrences + "×", { keepEmpty: true });
+
+  const stackMatch = body.match(/<summary>Stack Trace<\/summary>\s*\n\n```\n([\s\S]*?)\n```/);
+  document.getElementById("crashStackTrace").textContent = stackMatch ? stackMatch[1] : "(no stack trace captured)";
+
+  const historyEl = document.getElementById("crashHistoryList");
+  const recurrences = (entry.comments || []).filter(c => (c.body || "").startsWith("Seen again"));
+  historyEl.innerHTML = recurrences.length
+    ? recurrences.map(c => `
+        <div class="history-item">
+          <div class="hwhen">${new Date(c.created_at).toLocaleString()}</div>
+          <div>${escapeHtml(c.body || "")}</div>
+        </div>`).join("")
+    : `<div class="hint">No recurrences recorded yet — reported once so far.</div>`;
+
+  document.getElementById("crashGhLink").href =
+    `https://github.com/${OWNER}/${CRASH_REPO}/issues/${issue.number}`;
+
+  const ignored = isIgnored(issue);
+  document.getElementById("crashIgnoreBtn").classList.toggle("hidden", ignored);
+  document.getElementById("crashCloseBtn").classList.toggle("hidden", issue.state !== "open");
+  document.getElementById("crashReopenBtn").classList.toggle("hidden", issue.state !== "closed");
+}
+
+document.getElementById("crashBackBtn").onclick = () => {
+  selectedCrashNumber = null;
+  currentCrashEntry = null;
+  document.getElementById("crashFormCard").classList.add("hidden");
+  document.getElementById("crashEmptyDetail").classList.remove("hidden");
+  document.getElementById("crashLayoutRoot").classList.remove("detail-open");
+  renderCrashList();
+};
+document.getElementById("crashDetailRefreshBtn").onclick = () => loadCrashList(true);
+
+document.getElementById("crashIgnoreBtn").onclick = async () => {
+  const ok = await customConfirm(
+    `Mark crash report #${currentCrashEntry.issue.number} as ignored (known-benign/noise)? This closes it and hides it from the list by default.`,
+    { title: "Ignore Crash Report", confirmText: "Ignore & Close", kind: "warn" }
+  );
+  if (!ok) return;
+  const btn = document.getElementById("crashIgnoreBtn");
+  btn.disabled = true;
+  try {
+    const currentLabels = (currentCrashEntry.issue.labels || []).map(l => l.name || l);
+    const newLabels = currentLabels.includes("ignored") ? currentLabels : [...currentLabels, "ignored"];
+    await ghCrash(`/issues/${currentCrashEntry.issue.number}`, {
+      method: "PATCH",
+      body: JSON.stringify({ labels: newLabels, state: "closed" })
+    });
+    toast("Marked as ignored.", true);
+    loadCrashList();
+  } catch (e) {
+    toast("Ignore failed: " + e.message, false);
+  } finally {
+    btn.disabled = false;
+  }
+};
+
+document.getElementById("crashCloseBtn").onclick = async () => {
+  const ok = await customConfirm(
+    `Close crash report #${currentCrashEntry.issue.number} as fixed?`,
+    { title: "Close Crash Report", confirmText: "Close (fixed)", kind: "info" }
+  );
+  if (!ok) return;
+  try {
+    await ghCrash(`/issues/${currentCrashEntry.issue.number}`, { method: "PATCH", body: JSON.stringify({ state: "closed" }) });
+    toast("Crash report closed.", true);
+    loadCrashList();
+  } catch (e) {
+    toast("Close failed: " + e.message, false);
+  }
+};
+
+document.getElementById("crashReopenBtn").onclick = async () => {
+  try {
+    const currentLabels = (currentCrashEntry.issue.labels || []).map(l => l.name || l);
+    const newLabels = currentLabels.filter(l => l !== "ignored");
+    await ghCrash(`/issues/${currentCrashEntry.issue.number}`, {
+      method: "PATCH",
+      body: JSON.stringify({ state: "open", labels: newLabels })
+    });
+    toast("Crash report reopened.", true);
+    loadCrashList();
+  } catch (e) {
+    toast("Reopen failed: " + e.message, false);
+  }
+};
+
+// ── Init ─────────────────────────────────────────────────────────────────
+if (getToken()) showApp(); else showTokenSetup();
+</script>
+
+</body>
+</html>

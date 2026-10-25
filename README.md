@@ -14,6 +14,7 @@ Newest generic ambill: [releases/latest](https://github.com/ampro-repos/ambill-r
 
 | Version | Date | Installer | Release |
 |---|---|---|---|
+| v26.1.6 | 2026-10-25 | [download](https://github.com/ampro-repos/ambill-releases/releases/download/ambill/ambill_26_27/v26.1.6/ambill_26_27-Setup.exe) | [release notes](https://github.com/ampro-repos/ambill-releases/releases/tag/ambill/ambill_26_27/v26.1.6) |
 | v26.1.5 | 2026-10-25 | [download](https://github.com/ampro-repos/ambill-releases/releases/download/ambill/ambill_26_27/v26.1.5/ambill_26_27-Setup.exe) | [release notes](https://github.com/ampro-repos/ambill-releases/releases/tag/ambill/ambill_26_27/v26.1.5) |
 
 ### ambill / Generic

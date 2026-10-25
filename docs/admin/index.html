@@ -1353,15 +1353,17 @@ function setRefreshBusy(busy) {
 // boot, and post-action reloads after Approve/Close/Reopen/etc.) already show their own
 // specific toast ("Request closed.", ...) — a generic "Updated" toast here would immediately
 // overwrite and hide that more useful message, since both share the single #toast element.
-async function loadIssueList(announceSuccess) {
+async function loadIssueList(announceSuccess, silent) {
   const listEl = document.getElementById("issueList");
   const empty = document.getElementById("listEmpty");
   const loading = document.getElementById("listLoading");
   const myGen = ++renderGeneration;
-  setRefreshBusy(true);
-  listEl.innerHTML = "";
-  empty.classList.add("hidden");
-  loading.classList.remove("hidden");
+  if (!silent) {
+    setRefreshBusy(true);
+    listEl.innerHTML = "";
+    empty.classList.add("hidden");
+    loading.classList.remove("hidden");
+  }
   try {
     const [issues] = await Promise.all([
       gh(`/issues?labels=license-request&state=all&per_page=100`),
@@ -1393,17 +1395,40 @@ async function loadIssueList(announceSuccess) {
       toast(`Updated — ${allIssues.length} request${allIssues.length === 1 ? "" : "s"} loaded.`, true);
     }
   } catch (e) {
-    if (myGen === renderGeneration) toast("Could not load requests: " + e.message, false);
+    if (myGen === renderGeneration && !silent) toast("Could not load requests: " + e.message, false);
   } finally {
     // Only clear busy/loading state if nothing newer has taken over — otherwise this stale
     // call's cleanup would prematurely re-enable a Refresh button a genuinely-still-running
     // newer operation (e.g. a poll) needs to stay disabled.
-    if (myGen === renderGeneration) {
+    if (myGen === renderGeneration && !silent) {
       loading.classList.add("hidden");
       setRefreshBusy(false);
     }
   }
 }
+
+// Background auto-refresh: every 30s (and when the tab comes back into view) look at the cheap
+// issue list only, and reload fully when a request was opened/closed/edited/commented elsewhere
+// (GitHub's own UI, the customer's app, another admin). Skipped while an approve/extend poll is
+// running or while a field in the detail panel has focus, so it never overwrites what is being typed.
+let lastIssueSignature = null;
+async function autoRefreshCheck() {
+  if (document.hidden || !getToken()) return;
+  if (document.getElementById("tokenWrap") && !document.getElementById("tokenWrap").classList.contains("hidden")) return;
+  if (["approveBtn", "markPaidBtn", "extendBtn"].some(id => { const b = document.getElementById(id); return b && b.disabled && /⏳/.test(b.textContent); })) return;
+  const a = document.activeElement;
+  if (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && a.closest("#detail, #detailPanel, .detail")) return;
+  try {
+    const issues = await gh(`/issues?labels=license-request&state=all&per_page=100`);
+    const sig = issues.map(i => `${i.number}:${i.state}:${i.updated_at}:${i.comments}`).join("|");
+    if (lastIssueSignature === null) { lastIssueSignature = sig; return; }
+    if (sig === lastIssueSignature) return;
+    lastIssueSignature = sig;
+    await loadIssueList(false, true);
+  } catch (e) { /* stay quiet; the next tick retries */ }
+}
+setInterval(autoRefreshCheck, 30000);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) autoRefreshCheck(); });
 
 function computeStatus(entry) {
   const { issue, license } = entry;

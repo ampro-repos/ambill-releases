@@ -14,25 +14,25 @@ Newest generic ambill: [releases/latest](https://github.com/ampro-repos/ambill-r
 
 | Version | Date | Installer | Release |
 |---|---|---|---|
-| v26.1.14 | 2026-10-30 | [download](https://github.com/ampro-repos/ambill-releases/releases/download/ambill/ambill_26_27/v26.1.14/ambill_26_27-Setup.exe) | [release notes](https://github.com/ampro-repos/ambill-releases/releases/tag/ambill/ambill_26_27/v26.1.14) |
+| v26.1.15 | 2026-10-31 | [download](https://github.com/ampro-repos/ambill-releases/releases/download/ambill/ambill_26_27/v26.1.15/ambill_26_27-Setup.exe) | [release notes](https://github.com/ampro-repos/ambill-releases/releases/tag/ambill/ambill_26_27/v26.1.15) |
 
 ### ambill / Generic
 
 | Version | Date | Installer | Release |
 |---|---|---|---|
-| v26.1.14 | 2026-10-30 | [download](https://github.com/ampro-repos/ambill-releases/releases/download/ambill/Generic/v26.1.14/ambill-Setup.exe) | [release notes](https://github.com/ampro-repos/ambill-releases/releases/tag/ambill/Generic/v26.1.14) |
+| v26.1.15 | 2026-10-31 | [download](https://github.com/ampro-repos/ambill-releases/releases/download/ambill/Generic/v26.1.15/ambill-Setup.exe) | [release notes](https://github.com/ampro-repos/ambill-releases/releases/tag/ambill/Generic/v26.1.15) |
 
 ### ambill / ambill_27_28
 
 | Version | Date | Installer | Release |
 |---|---|---|---|
-| v26.1.14 | 2026-10-30 | [download](https://github.com/ampro-repos/ambill-releases/releases/download/ambill/ambill_27_28/v26.1.14/ambill_27_28-Setup.exe) | [release notes](https://github.com/ampro-repos/ambill-releases/releases/tag/ambill/ambill_27_28/v26.1.14) |
+| v26.1.15 | 2026-10-31 | [download](https://github.com/ampro-repos/ambill-releases/releases/download/ambill/ambill_27_28/v26.1.15/ambill_27_28-Setup.exe) | [release notes](https://github.com/ampro-repos/ambill-releases/releases/tag/ambill/ambill_27_28/v26.1.15) |
 
 ### ambill / ambill_25_26
 
 | Version | Date | Installer | Release |
 |---|---|---|---|
-| v26.1.14 | 2026-10-30 | [download](https://github.com/ampro-repos/ambill-releases/releases/download/ambill/ambill_25_26/v26.1.14/ambill_25_26-Setup.exe) | [release notes](https://github.com/ampro-repos/ambill-releases/releases/tag/ambill/ambill_25_26/v26.1.14) |
+| v26.1.15 | 2026-10-31 | [download](https://github.com/ampro-repos/ambill-releases/releases/download/ambill/ambill_25_26/v26.1.15/ambill_25_26-Setup.exe) | [release notes](https://github.com/ampro-repos/ambill-releases/releases/tag/ambill/ambill_25_26/v26.1.15) |
 
 ## amfreezer
 
